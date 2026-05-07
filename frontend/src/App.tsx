@@ -4,8 +4,14 @@ import Layout from './components/Layout';
 import Dashboard from './pages/Dashboard';
 import Orders from './pages/Orders';
 import Inventory from './pages/Inventory';
+import RawMaterials from './pages/RawMaterials';
+import WastageTracking from './pages/WastageTracking';
+import CustomerProfiles from './pages/CustomerProfiles';
+import Financial from './pages/Financial';
+import Reports from './pages/Reports';
 import ErrorBoundary from './components/ErrorBoundary';
 import './styles/globals.css';
+
 const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
@@ -14,6 +20,7 @@ const queryClient = new QueryClient({
     },
   },
 });
+
 function App() {
   return (
     <QueryClientProvider client={queryClient}>
@@ -24,6 +31,11 @@ function App() {
               <Route index element={<Dashboard />} />
               <Route path="orders" element={<Orders />} />
               <Route path="inventory" element={<Inventory />} />
+              <Route path="raw-materials" element={<RawMaterials />} />
+              <Route path="wastage" element={<WastageTracking />} />
+              <Route path="customers" element={<CustomerProfiles />} />
+              <Route path="financial" element={<Financial />} />
+              <Route path="reports" element={<Reports />} />
             </Route>
           </Routes>
         </BrowserRouter>
@@ -31,4 +43,5 @@ function App() {
     </QueryClientProvider>
   );
 }
+
 export default App;
