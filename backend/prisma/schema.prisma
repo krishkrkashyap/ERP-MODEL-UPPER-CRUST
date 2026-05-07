@@ -1,0 +1,388 @@
+// Prisma schema for ERP System - PostgreSQL (as per plan.md Section 3)
+// Based on real API responses fetched on 2026-05-06/
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ===== CORE ENTITIES =====
+
+// Restaurant model - Based on Consumption API actual response
+model Restaurant {
+  id                Int      @id @default(autoincrement())
+  petpoojaRestId    String   @unique @map("petpooja_rest_id") // e.g., "uvhn3bim" or "340305"
+  name              String   @map("name")
+  address           String?  // From API: "address"
+  state             String?  @map("state") // From API: "restaurant_state"
+  contactInfo       String?  @map("contact_info") // From API: "contact_information"
+  
+  // Relations
+  customers         Customer[]
+  orders            Order[]
+  inventoryItems    InventoryItem[]
+  purchaseOrders    PurchaseOrder[]
+  purchaseInvoices PurchaseInvoice[]
+  internalSales     InternalSale[]
+  stockLevels       StockLevel[]
+  
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@map("restaurants")
+}
+
+// Customer model - Based on Consumption API actual response
+model Customer {
+  id                Int      @id @default(autoincrement())
+  petpoojaCustomerId String?  @map("petpooja_customer_id") // Removed @unique - not in plan.md
+  restaurantId      Int      @map("restaurant_id")
+  name              String?  // From API: "name" (can be "walk")
+  address           String?  // From API: "address" (e.g., "rtc")
+  phone             String?  @map("phone") // Removed @unique - plan.md only specifies @@unique([restaurantId, phone])
+  gstin             String?  @map("gstin") // From API: "gst_no"
+  createdDate       DateTime? @map("created_date") // From API: "created_date"
+  
+  // Relations
+  restaurant Restaurant @relation(fields: [restaurantId], references: [id])
+  orders     Order[]
+  
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@unique([restaurantId, phone]) // From plan.md Section 3.1.2
+  @@index([phone])
+  @@index([restaurantId])
+  @@map("customers")
+}
+
+// Order model - Based on Consumption API actual response (sample_consumption.json)
+model Order {
+  id                Int      @id @default(autoincrement())
+  petpoojaOrderId   String   @unique @map("petpooja_order_id") // From API: "orderID" (number, convert to string)
+  restaurantId      Int      @map("restaurant_id")
+  customerId        Int?     @map("customer_id")
+  
+  // Order details - From API: "Order" object
+  orderType        String?  @map("order_type") // "Dine In", "Pick Up", "Delivery"
+  paymentType      String?  @map("payment_type") // "Cash", "Card", "Online"
+  orderFrom        String?  @map("order_from") // "POS", "Zomato"
+  orderFromId      String?  @map("order_from_id") // From API: "refId"
+  subOrderType     String?  @map("sub_order_type") // "AC", "Pick Up"
+  tableNo          String?  @map("table_no")
+  numberOfPersons  Int?     @map("no_of_persons")
+  
+  // Address field (from Consumption API)
+  address          String?  // From Customer object in API
+  
+  // Financial - From API: "Order" object
+  deliveryCharges   Decimal  @default(0) @map("delivery_charges") @db.Decimal(10, 2) // Note: "delivery_charges" not "deliveryCharges"
+  containerCharges Decimal  @default(0) @map("container_charges") @db.Decimal(10, 2)
+  discountTotal    Decimal  @default(0) @map("discount_total") @db.Decimal(10, 2)
+  taxTotal         Decimal  @default(0) @map("tax_total") @db.Decimal(10, 2)
+  coreTotal        Decimal  @map("core_total") @db.Decimal(10, 2)
+  total            Decimal  @map("total") @db.Decimal(10, 2)
+  
+  // Status & Meta
+  status           String?  // "Success", "Cancelled"
+  biller           String?  // From API
+  assignee         String?  // From API
+  createdOn        DateTime? @map("created_on") // From API: "created_on"
+  orderDate        DateTime? @map("order_date") // From API
+  
+  // Flags
+  advanceOrder     Boolean? @map("advance_order") // From API: "advance_order": "No"
+  isFoodRes        String?  @map("is_food_res") // From API: "is_food_res"
+  tip              Decimal  @default(0) @map("tip") @db.Decimal(10, 2)
+  serviceCharge    Decimal  @default(0) @map("service_charge") @db.Decimal(10, 2)
+  groupIds         String?  @map("group_ids") // From API: "group_ids"
+  groupNames       String?  @map("group_names") // From API: "group_names"
+  onlineOrderId    String?  @map("online_order_id") // From API: "online_order_id"
+  
+  // Raw payload storage
+  rawPayload       String?  @map("raw_payload") // Stored as TEXT for PostgreSQL
+  
+  // Relations
+  restaurant    Restaurant  @relation(fields: [restaurantId], references: [id])
+  customer      Customer?   @relation(fields: [customerId], references: [id])
+  orderItems   OrderItem[]
+  taxes         OrderTax[]
+  discounts    OrderDiscount[]
+  
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@index([restaurantId, createdOn])
+  @@index([status])
+  @@map("orders")
+}
+
+// OrderItem model - Based on Consumption API actual response ("OrderItem" array)
+model OrderItem {
+  id           Int      @id @default(autoincrement())
+  orderId      Int      @map("order_id")
+  
+  // Item details - From API: "OrderItem" fields
+  petpoojaItemId String?  @map("petpooja_item_id") // From API: "itemid" (number)
+  name         String?  // From API: "name"
+  itemCode     String?  @map("item_code") // From API: "itemcode"
+  categoryId   String?  @map("category_id") // From API: "categoryid"
+  categoryName String?  @map("category_name") // From API: "categoryname"
+  price        Decimal  @db.Decimal(10, 2) // From API: "price"
+  quantity     Int      // From API: "quantity" (not "qty")
+  total        Decimal  @db.Decimal(10, 2) // From API: "total"
+  
+  // Addons - Stored as String (JSON) for PostgreSQL
+  addon           String?  @map("addon") // From API: "addon" array
+  addonPrice     Decimal  @default(0) @map("addon_price") @db.Decimal(10, 2)
+  
+  // Consumption (raw materials consumed) - Stored as String (JSON) for PostgreSQL
+  consumed        String?  @map("consumed") // From API: "consumed" array with raw material details
+  
+  // Tax & Discount
+  discount     Decimal  @default(0) @db.Decimal(10, 2)
+  tax          Decimal  @default(0) @db.Decimal(10, 2) // From API: "tax" in "item_tax_info"
+  sapCode      String?  @map("sap_code") // From API: "itemsapcode"
+  
+  // Tax info (from API: "item_tax_info")
+  itemTaxInfo     String?  @map("item_tax_info") // From API: "item_tax_info" object - stored as JSON string
+  totalDiscount  Decimal  @default(0) @map("total_discount") @db.Decimal(10, 2)
+  totalTax      Decimal  @default(0) @map("total_tax") @db.Decimal(10, 2)
+  taxIds       String?  @map("tax_ids") // From API: "tax_ids" (e.g., "347523,347522")
+  
+  // Flags
+  taxInclusive   Int?     @map("tax_inclusive") // From API: "tax_inclusive": 2
+  discountId    String?  @map("discount_id") // From API: "discount_id"
+  itemDiscountTotal Decimal  @default(0) @map("item_discount_total") @db.Decimal(10, 2)
+  
+  // Relations
+  order Order @relation(fields: [orderId], references: [id])
+  
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@index([orderId])
+  @@map("order_items")
+}
+
+// Tax model for Order (From API: "Tax" array)
+model OrderTax {
+  id         Int      @id @default(autoincrement())
+  orderId    Int      @map("order_id")
+  
+  title      String?  // From API: "title" (e.g., "SGST", "CGST")
+  type       String?  // From API: "type" (e.g., "P")
+  rate       Decimal  @db.Decimal(5, 2) // From API: "rate"
+  amount     Decimal  @db.Decimal(10, 2) // From API: "amount"
+  taxId      String?  @map("taxid") // From API: "taxid"
+  
+  // Relations
+  order Order @relation(fields: [orderId], references: [id])
+  
+  @@index([orderId])
+  @@map("order_taxes")
+}
+
+// Discount model for Order (From API: "Discount" array)
+model OrderDiscount {
+  id         Int      @id @default(autoincrement())
+  orderId    Int      @map("order_id")
+  
+  title      String?  // From API: "title" (e.g., "Special Discount")
+  type       String?  // From API: "type" (e.g., "P" or "F")
+  rate       Decimal  @db.Decimal(5, 2) // From API: "rate" (percentage or 0 for flat)
+  amount     Decimal  @db.Decimal(10, 2) // From API: "amount"
+  discountId String?  @map("discountid") // From API: "discountid"
+  
+  // Relations
+  order Order @relation(fields: [orderId], references: [id])
+  
+  @@index([orderId])
+  @@map("order_discounts")
+}
+
+// InventoryItem model - Based on Stock API actual response
+model InventoryItem {
+  id              Int      @id @default(autoincrement())
+  petpoojaItemId String?  @unique @map("petpooja_item_id") // Note: Stock API doesn't return this
+  restaurantId    Int      @map("restaurant_id")
+  
+  // Item details - From Stock API: "name", "unit", "category"
+  name          String  // From Stock API: "name"
+  category      String?  // From Stock API: "category"
+  unit          String?  // From Stock API: "unit" (e.g., "Kg", "NOS", "btl")
+  
+  // Note: Stock API doesn't include hsnCode, gstPercentage, sapCode
+  // These might come from Raw Material API
+  sapCode       String?  @map("sap_code") // From Stock API: "sapcode" (lowercase!)
+  
+  // Flags
+  status        Boolean  @default(true)
+  
+  // Relations
+  restaurant  Restaurant  @relation(fields: [restaurantId], references: [id])
+  stockLevels StockLevel[]
+  
+  @@index([restaurantId])
+  @@index([sapCode])
+  @@map("inventory_items")
+}
+
+// StockLevel model - Based on Stock API actual response
+model StockLevel {
+  id             Int      @id @default(autoincrement())
+  inventoryItemId Int      @map("inventory_item_id")
+  restaurantId   Int      @map("restaurant_id")
+  date           DateTime  @map("date") // From API: "date" (YYYY-MM-DD)
+  
+  // From Stock API: "qty", "price"
+  quantity       Decimal  @map("quantity") @db.Decimal(12, 3) // From Stock API: "qty" (string, e.g., "0")
+  unit           String?  // From Stock API: "unit"
+  price          Decimal  @map("price") @db.Decimal(12, 2) // From Stock API: "price" (string, e.g., "0")
+  
+  // Relations
+  inventoryItem InventoryItem @relation(fields: [inventoryItemId], references: [id])
+  restaurant    Restaurant     @relation(fields: [restaurantId], references: [id])
+  
+  @@unique([inventoryItemId, restaurantId, date])
+  @@index([date])
+  @@map("stock_levels")
+}
+
+// PurchaseOrder model - Based on Get Purchase API (sample_purchase.json was empty)
+// Using webhook payload structure from syntax.md
+model PurchaseOrder {
+  id             Int      @id @default(autoincrement())
+  petpoojaPoId  String?  @unique @map("petpooja_po_id") // From webhook: "id" (number)
+  restaurantId   Int      @map("restaurant_id")
+  
+  // From syntax.md webhook payload
+  receiverType   String?  @map("receiver_type") // "Supplier"
+  receiverName   String?  @map("receiver_name")
+  deliveryDate   DateTime? @map("delivery_date") // From webhook: "deliveryDate"
+  poNumber      String?  @map("po_number") // From webhook: "poNumber"
+  
+  // Financial
+  totalTax      Decimal  @map("total_tax") @db.Decimal(10, 2) // From webhook: "totalTax"
+  total         Decimal  @map("total") @db.Decimal(10, 2)
+  roundOff      Decimal  @default(0) @map("round_off") @db.Decimal(10, 2)
+  
+  // Status
+  status        String?  // From webhook: "status" ("Active")
+  
+  // Additional fields from webhook
+  chargeDetails   String?  @map("charge_details") // From webhook: "chargeDetails" - stored as JSON string
+  fromDepartmentId Int?    @map("from_department_id")
+  toDepartmentId   Int?    @map("to_department_id")
+  
+  // Raw payload
+  rawPayload    String?  @map("raw_payload") // Stored as TEXT for PostgreSQL
+  
+  // Relations
+  restaurant Restaurant @relation(fields: [restaurantId], references: [id])
+  
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@index([restaurantId, createdAt])
+  @@map("purchase_orders")
+}
+
+// PurchaseInvoice model - Based on Pull API response (sample_sales.json structure)
+model PurchaseInvoice {
+  id             Int      @id @default(autoincrement())
+  petpoojaPurchaseId String?  @unique @map("petpooja_purchase_id") // From Push API response: "purchase_id"
+  restaurantId   Int      @map("restaurant_id")
+  
+  // Invoice details
+  invoiceNumber String?  @map("invoice_number")
+  invoiceDate   DateTime? @map("invoice_date")
+  receiverName   String?  @map("receiver_name")
+  receiverType   String?  @map("receiver_type")
+  
+  // Financial - From Pull API: "totalTax", "totalDiscount", etc.
+  subTotal      Decimal  @map("sub_total") @db.Decimal(10, 2)
+  totalTax      Decimal  @map("total_tax") @db.Decimal(10, 2)
+  totalDiscount  Decimal  @default(0) @map("total_discount") @db.Decimal(10, 2)
+  deliveryCharge Decimal  @default(0) @map("delivery_charge") @db.Decimal(10, 2)
+  total         Decimal  @map("total") @db.Decimal(10, 2)
+  
+  // Payment - From Pull API: "paid_amount", "payment"
+  paymentStatus String?  @map("payment_status") // "Paid", "Unpaid", "Partial"
+  paidAmount    Decimal  @default(0) @map("paid_amount") @db.Decimal(10, 2)
+  
+  // Additional fields from Pull API
+  mrnNo          String?  @map("mrn_no")
+  gstNo          String?  @map("gst_no")
+  actionStatus   String?  @map("action_status") // "Active", "Processed"
+  receiverGst    String?  @map("receiver_gst")
+  senderDetails  String?  @map("sender_details") // From Pull API: "restaurant_details.sender" - JSON string
+  receiverDetails String? @map("receiver_details") // From Pull API: "restaurant_details.receiver" - JSON string
+  
+  // Raw payload
+  rawPayload    String?  @map("raw_payload") // Stored as TEXT for PostgreSQL
+  
+  // Relations
+  restaurant Restaurant @relation(fields: [restaurantId], references: [id])
+  createdOn   DateTime? @map("created_on") // From Pull API
+  
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@index([restaurantId, invoiceDate])
+  @@map("purchase_invoices")
+}
+
+// InternalSale model - Based on Get Sales API actual response (sample_sales.json)
+model InternalSale {
+  id             Int      @id @default(autoincrement())
+  petpoojaSaleId String?  @unique @map("petpooja_sale_id") // From API: "sale_id" (number)
+  restaurantId   Int      @map("restaurant_id")
+  
+  // Sale details - From sample_sales.json
+  type          String?  // From API: "type" ("Normal", "Transfer", "Wastage", "Purchase Return")
+  invoiceNumber String?  @map("invoice_number") // From API: "invoice_number"
+  invoiceDate   DateTime? @map("invoice_date") // From API: "invoice_date"
+  mrnNo         String?  @map("mrn_no") // From API: "mrn_no"
+  
+  // Financial - From API: "total_tax" (underscore!)
+  total         Decimal  @map("total") @db.Decimal(10, 2)
+  totalTax      Decimal  @map("total_tax") @db.Decimal(10, 2) // Note: "total_tax" not "totalTax"
+  deliveryCharge Decimal  @default(0) @map("delivery_charge") @db.Decimal(10, 2) // From API: "delivery_charge"
+  roundOffAmount Decimal  @default(0) @map("round_off_amount") @db.Decimal(10, 2)
+  
+  // Status & Meta
+  status        String?  // From API
+  actionStatus  String?  @map("action_status") // From API: "action_status" ("Processed")
+  payment       String?  // From API: "payment" ("Unpaid")
+  paidAmount    Decimal  @default(0) @map("paid_amount") @db.Decimal(10, 2)
+  
+  // Additional fields from API
+  senderId      String?  @map("sender_id") // From API
+  senderType    String?  @map("sender_type") // From API: "sender_type" ("Kitchen")
+  address       String?  // From API: "address"
+  restaurantDetails String?  @map("restaurant_details") // From API: nested object - stored as JSON string
+  ratecard        String?  @map("ratecard") // From API: "ratecard" - JSON string
+  moduleType     String?  @map("module_type") // From API: "module_type"
+  freezeStock   Boolean? @map("freeze_stock") // From API: "freeze_stock"
+  uniqueFormId  String?  @map("unique_form_id") // From API: "uniqueFormId" - JSON string
+  
+  // Item details from API
+  itemDetails   String?  @map("item_details") // From API: "item_details" array - JSON string
+  accountDetails String?  @map("account_details") // From API: "account_details" - JSON string
+  paidAmountDetails String?  @map("paid_amount_details") // From API: "paid_amount_details" - JSON string
+  tcs           Decimal  @default(0) @map("tcs") @db.Decimal(10, 2) // From API: "TCS"
+  
+  // Raw payload
+  rawPayload    String?  @map("raw_payload") // Stored as TEXT for PostgreSQL
+  
+  // Relations
+  restaurant Restaurant @relation(fields: [restaurantId], references: [id])
+  
+  createdOn   DateTime? @map("created_on") // From API: "created_on"
+  modifiedOn  DateTime? @map("modified_on") // From API: "modified_on"
+  
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@index([type, invoiceDate])
+  @@map("internal_sales")
+}

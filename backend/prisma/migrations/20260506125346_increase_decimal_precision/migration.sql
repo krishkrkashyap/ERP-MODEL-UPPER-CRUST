@@ -1,0 +1,3 @@
+-- AlterTable
+ALTER TABLE "stock_levels" ALTER COLUMN "quantity" SET DATA TYPE DECIMAL(12,3),
+ALTER COLUMN "price" SET DATA TYPE DECIMAL(12,2);
