@@ -1,0 +1,11 @@
+feat: Phase 2 - Wastage tracking (Internal Sales API) complete.
+
+- Added Wastage Tracking page (frontend)
+- Created wastage.routes.ts (backend)
+- Uses Internal Sales API with type="Wastage"
+- Push wastage to Petpooja via createSale()
+- Fetch wastage records via getSales() with type="Wastage"
+- Added to navigation menu with DeleteOutlined icon
+- All changes committed after verification (both builds successful)
+
+Version: 0.3.0 (Phase 2 - Wastage Tracking Complete)

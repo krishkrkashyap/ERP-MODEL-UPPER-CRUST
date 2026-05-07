@@ -65,6 +65,10 @@ app.use('/api/procurement', procurementRoutes);
 import rawMaterialRoutes from './routes/raw-material.routes';
 app.use('/api/raw-materials', rawMaterialRoutes);
 
+// Wastage Tracking routes
+import wastageRoutes from './routes/wastage.routes';
+app.use('/api/wastage', wastageRoutes);
+
 // Petpooja webhook routes
 import webhookRoutes from './routes/webhook.routes';
 app.use('/webhook/petpooja', webhookRoutes);

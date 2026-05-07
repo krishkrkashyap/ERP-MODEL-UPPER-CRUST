@@ -4,7 +4,8 @@ import {
   DashboardOutlined, 
   ShoppingCartOutlined, 
   DatabaseOutlined,
-  AppstoreOutlined 
+  AppstoreOutlined,
+  DeleteOutlined 
 } from '@ant-design/icons';
 import type { MenuProps } from 'antd';
 
@@ -31,6 +32,11 @@ const LayoutComponent = () => {
       key: '/raw-materials',
       icon: <AppstoreOutlined />,
       label: <Link to="/raw-materials">Raw Materials</Link>,
+    },
+    {
+      key: '/wastage',
+      icon: <DeleteOutlined />,
+      label: <Link to="/wastage">Wastage Tracking</Link>,
     },
   ];
 
