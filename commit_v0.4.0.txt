@@ -1,0 +1,15 @@
+feat: Phase 2 - Customer Profiles with order history complete.
+
+- Created CustomerProfiles page (frontend)
+- Shows customer list with order count
+- View Details drawer shows:
+  - Customer info (name, phone, GSTIN, address)
+  - Order history table (order ID, date, type, total, status)
+- Uses existing backend routes (GET /api/customers, GET /:id)
+- Sync customers from Petpooja API
+- Added to navigation with UserOutlined icon
+- Frontend builds successfully (verified)
+
+Note: Customer segmentation, analytics, and CRM activities are separate tasks.
+
+Version: 0.4.0 (Phase 2 - Customer Profiles Complete)

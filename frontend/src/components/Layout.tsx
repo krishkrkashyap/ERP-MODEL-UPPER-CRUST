@@ -4,8 +4,9 @@ import {
   DashboardOutlined, 
   ShoppingCartOutlined, 
   DatabaseOutlined,
-  AppstoreOutlined,
-  DeleteOutlined 
+  AppstoreOutlined, 
+  DeleteOutlined, 
+  UserOutlined,
 } from '@ant-design/icons';
 import type { MenuProps } from 'antd';
 
@@ -37,6 +38,11 @@ const LayoutComponent = () => {
       key: '/wastage',
       icon: <DeleteOutlined />,
       label: <Link to="/wastage">Wastage Tracking</Link>,
+    },
+    {
+      key: '/customers',
+      icon: <UserOutlined />,
+      label: <Link to="/customers">Customer Profiles</Link>,
     },
   ];
 
