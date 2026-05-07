@@ -3,7 +3,8 @@ import { Layout as AntLayout, Menu } from 'antd';
 import { 
   DashboardOutlined, 
   ShoppingCartOutlined, 
-  DatabaseOutlined 
+  DatabaseOutlined,
+  AppstoreOutlined 
 } from '@ant-design/icons';
 import type { MenuProps } from 'antd';
 
@@ -25,6 +26,11 @@ const LayoutComponent = () => {
       key: '/inventory',
       icon: <DatabaseOutlined />,
       label: <Link to="/inventory">Inventory</Link>,
+    },
+    {
+      key: '/raw-materials',
+      icon: <AppstoreOutlined />,
+      label: <Link to="/raw-materials">Raw Materials</Link>,
     },
   ];
 

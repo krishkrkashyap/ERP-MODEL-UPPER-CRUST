@@ -206,18 +206,24 @@ model OrderDiscount {
 model InventoryItem {
   id              Int      @id @default(autoincrement())
   petpoojaItemId String?  @unique @map("petpooja_item_id") // Note: Stock API doesn't return this
-  restaurantId    Int      @map("restaurant_id")
+  restaurantId   Int      @map("restaurant_id")
   
   // Item details - From Stock API: "name", "unit", "category"
   name          String  // From Stock API: "name"
-  category      String?  // From Stock API: "category"
-  unit          String?  // From Stock API: "unit" (e.g., "Kg", "NOS", "btl")
+  category      String? // From Stock API: "category"
+  type          String?  // "R" for Raw Material, null for others
+  unit          String? // From Stock API: "unit" (e.g., "Kg", "NOS", "btl")
+  consumptionUnit String? @map("consumption_unit")
+  conversionQty Decimal? @map("conversion_qty") @db.Decimal(10, 3)
   
   // Note: Stock API doesn't include hsnCode, gstPercentage, sapCode
   // These might come from Raw Material API
-  sapCode       String?  @map("sap_code") // From Stock API: "sapcode" (lowercase!)
+  hsnCode       String? @map("hsn_code")
+  gstPercentage Decimal? @map("gst_percentage") @db.Decimal(5, 2)
+  sapCode       String? @map("sap_code") // From Stock API: "sapcode" (lowercase!)
   
   // Flags
+  isExpiry     Boolean  @default(false) @map("is_expiry")
   status        Boolean  @default(true)
   
   // Relations

@@ -1,0 +1,11 @@
+feat: Phase 2 - Raw Material API integration complete
+
+- Added Raw Material API (push new materials to Petpooja)
+- Created RawMaterial model with type, consumptionUnit, conversionQty fields
+- Built Raw Materials page with create form (frontend)
+- Added raw-material.routes.ts (backend)
+- Updated InventoryItem Prisma schema with new fields
+- Added Raw Materials to navigation menu
+- All changes committed after verification
+
+Version: 0.2.0 (Phase 2 - Raw Materials Complete)
