@@ -6,4 +6,5 @@ export { default as inventoryRoutes } from './inventory.routes';
 export { default as procurementRoutes } from './procurement.routes';
 export { default as rawMaterialRoutes } from './raw-material.routes';
 export { default as wastageRoutes } from './wastage.routes';
+export { default as financialRoutes } from './financial.routes';
 export { default as webhookRoutes } from './webhook.routes';

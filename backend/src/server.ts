@@ -69,7 +69,11 @@ app.use('/api/raw-materials', rawMaterialRoutes);
 import wastageRoutes from './routes/wastage.routes';
 app.use('/api/wastage', wastageRoutes);
 
-// Petpooja webhook routes
+// Financial routes
+import financialRoutes from './routes/financial.routes';
+app.use('/api/financial', financialRoutes);
+
+// Petpooja webhook routes'
 import webhookRoutes from './routes/webhook.routes';
 app.use('/webhook/petpooja', webhookRoutes);
 

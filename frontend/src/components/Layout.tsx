@@ -4,9 +4,11 @@ import {
   DashboardOutlined, 
   ShoppingCartOutlined, 
   DatabaseOutlined,
-  AppstoreOutlined, 
+  AppstoreOutlined,
   DeleteOutlined, 
   UserOutlined,
+  DollarOutlined,
+  BarChartOutlined,
 } from '@ant-design/icons';
 import type { MenuProps } from 'antd';
 
@@ -43,6 +45,16 @@ const LayoutComponent = () => {
       key: '/customers',
       icon: <UserOutlined />,
       label: <Link to="/customers">Customer Profiles</Link>,
+    },
+    {
+      key: '/financial',
+      icon: <DollarOutlined />,
+      label: <Link to="/financial">Financial</Link>,
+    },
+    {
+      key: '/reports',
+      icon: <BarChartOutlined />,
+      label: <Link to="/reports">Reports</Link>,
     },
   ];
 

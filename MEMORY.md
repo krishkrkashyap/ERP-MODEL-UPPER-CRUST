@@ -1,129 +1,131 @@
 # ERP Project Memory
 
 ## Project Overview
-Building an ERP system using Petpooja Inventory APIs (14+ APIs) with PostgreSQL database and React frontend.
+- **Path:** `C:\Users\U.C\Desktop\Projects\ERP`
+- **Repository:** `https://github.com/krishkrkashyap/ERP-MODEL-UPPER-CRUST.git`
+- **Branch:** `main`
+- **Stack:** PostgreSQL + Prisma ORM, Node.js/Express, React/TypeScript, Tailwind CSS
 
-## What Works ✅
+## Completed Phases
+
+### Phase 1: Foundation ✅ (Commits v0.1.0)
+- PostgreSQL database with Prisma ORM
+- All database schemas (Section 3 of plan.md)
+- Node.js/Express backend with TypeScript
+- Petpooja API client (14+ APIs)
+- React frontend with Tailwind CSS
+- Fixed API field mappings (name, quantity, itemsapcode)
+- Orders & Inventory pages with outlet filtering
+- View Details feature for orders and inventory
+- Multi-outlet support (UC - Vastrapur, UC - Bodakdev)
+- Error handling and ErrorBoundary
+
+### Phase 2: Core Modules ✅ (Commits v0.2.0 - v0.4.0)
+- **Inventory Module:**
+  - Stock levels viewing with date filter
+  - Raw Material API (push new materials) - v0.2.0
+  - Wastage Tracking (Internal Sales API) - v0.3.0
+- **Procurement Module:**
+  - Purchase Order webhook receiver (webhook.routes.ts)
+  - Purchase API (push invoices) - procurement.routes.ts
+- **Sales & CRM Module:**
+  - Orders page with sync, pagination, View Details
+  - Customer Profiles with order history - v0.4.0
+
+### Phase 3: Financial & Reports 🔄 (Commit v0.5.0 - pending)
+- **Financial Module:**
+  - Tax liability calculator (Financial.tsx + financial.routes.ts)
+  - P&L statement endpoint
+  - Summary cards (Total Tax, CGST+SGST, IGST)
+- **Reports Module:** (in progress)
+  - Reports page with Sales/Inventory/Financial reports
+  - Table views with date filtering
+
+## API Field Mappings (Verified ✅)
+
+### Order Items (API → Database)
+| API Field | Database Field | Status |
+|------------|----------------|--------|
+| `name` | `name` | ✅ Fixed |
+| `quantity` | `quantity` | ✅ Fixed |
+| `itemsapcode` | `sapCode` | ✅ Fixed |
+| `itemcode` | `itemCode` | ✅ Working |
+| `categoryname` | `categoryName` | ✅ Working |
+
+### Taxes (API → Database)
+| API Field | Database Field | Status |
+|------------|----------------|--------|
+| `title` | `title` | ✅ Fixed |
+| `rate` | `rate` | ✅ Fixed |
+| `amount` | `amount` | ✅ Working |
+
+## Git Commits Summary
+| Version | Description | Date |
+|---------|-------------|------|
+| v0.1.0 | Phase 1 complete (Orders & Inventory) | 2026-05-07 |
+| v0.2.0 | Raw Material API integration | 2026-05-07 |
+| v0.3.0 | Wastage Tracking (Internal Sales API) | 2026-05-07 |
+| v0.4.0 | Customer Profiles with order history | 2026-05-07 |
+| v0.5.0 | Financial Module + Reports page | 2026-05-07 (pending commit) |
+
+## How to Run
+
+### Backend
+```bash
+cd C:\Users\U.C\Desktop\Projects\ERP\backend
+npm run dev
+# Runs on http://localhost:4000
+```
+
+### Frontend
+```bash
+cd C:\Users\U.C\Desktop\Projects\ERP\frontend
+npm run dev
+# Runs on http://localhost:3000
+```
 
 ### Database
-- **PostgreSQL 18** on localhost:5432, database: `erp`
-- **Prisma ORM** with 11 tables created and migrated
-- **Connection**: `postgresql://postgres:123@localhost:5432/erp?schema=public`
-- **Tables**: restaurants, customers, orders, order_items, order_taxes, order_discounts, inventory_items, stock_levels, purchase_orders, purchase_invoices, internal_sales
-
-### Backend Server
-- **Running on**: `http://localhost:4000`
-- **Health check**: `GET /health` returns 200 with `{"status": "healthy", "database": "connected"}`
-- **TypeScript**: Compiles cleanly with `npx tsc`
-- **Sample data**: Available in `C:\Users\U.C\Desktop\Projects\ERP\sample_*.json`
-
-### Working Endpoints
-- ✅ `GET /health` - Server health check
-- ✅ `POST /api/inventory/stock/sync` - Syncs 1564 stock items from Petpooja
-- ✅ `GET /api/inventory/stock?date=2026-05-05` - Returns stock from DB (1353 items)
-
-## Critical Issues to Fix ❌
-
-### 1. Order Sync Failing (HIGH PRIORITY)
-**Error**: `Unique constraint failed on the fields: (petpooja_customer_id)`
-
-**Root Cause**: The `petpoojaCustomerId` field has a unique constraint, but the API sometimes returns empty string for `customer_id`. When trying to upsert multiple customers with `petpoojaCustomerId: ''`, it violates the unique constraint.
-
-**Fix Options**:
-1. Remove unique constraint from `petpoojaCustomerId` in schema
-2. Use `phone` field as unique identifier (already unique)
-3. Skip upsert if `petpoojaCustomerId` is empty
-
-**File to Fix**: `backend/src/routes/order.routes.ts` (around line 112)
-
-### 2. Field Name Mismatches (LEARNED)
-When working with Petpooja APIs, always verify field names from sample data:
-- Stock API: `qty` (not `quantity`), `sapcode` (not `sapCode`)
-- Consumption API: `delivery_charges` (underscore), `container_charges` (underscore)
-- Order fields: `orderID` → `petpoojaOrderId`, `order_type` → `orderType`
-
-## API Credentials (Verified Working ✅)
-```
-app_key: rpvg7joamn421d3u0x5qhk9ze8sibtcw
-app_secret: c7b1e4b80a2d1bfbf67da2bc81ca9dd9bf019b3e
-access_token: 7334c01be3a9677868cbf1402880340e79e1ea84
-menuSharingCode: uvhn3bim (ID: 340305), t2jrg8ez (ID: 340304)
+```bash
+cd C:\Users\U.C\Desktop\Projects\ERP\backend
+npx prisma studio
+# Opens Prisma Studio for DB viewing
 ```
 
-## Date Format Rules (IMPORTANT ⚠️)
-- **Stock/Consumption APIs**: `YYYY-MM-DD` (T-1 rule - API returns yesterday's data)
-- **Purchase/Sales APIs**: `DD-MM-YYYY`
-- Always verify date format in `syntax.md` before making API calls
+## Petpooja API Credentials
+- **App Key:** `rpvg7joamn421d3u0x5qhk9ze8sibtcw`
+- **App Secret:** `c7b1e4b80a2d1bfbf67da2bc81ca9dd9bf019b3e`
+- **Access Token:** `7334c01be3a9677868cbf1402880340e79e1ea84`
+- **Outlets:**
+  - `uvhn3bim` → UC - Vastrapur (ID: 340305)
+  - `t2jrg8ez` → UC - Bodakdev (ID: 340304)
 
-## Sample Data Available
-Use these for testing without live API calls:
-- `sample_stock.json` - 1564 items (Stock API response)
-- `sample_consumption.json` - 200 orders (Consumption API response)
-- `sample_purchase.json` - Purchase data
-- `sample_sales.json` - Sales data
-- `sample_transfer.json` - Transfer data
+## Pages Created
+| Page | Path | Status |
+|------|------|--------|
+| Dashboard | `/` | ✅ Done |
+| Orders | `/orders` | ✅ Done |
+| Inventory | `/inventory` | ✅ Done |
+| Raw Materials | `/raw-materials` | ✅ Done |
+| Wastage Tracking | `/wastage` | ✅ Done |
+| Customer Profiles | `/customers` | ✅ Done |
+| Financial | `/financial` | ✅ Done |
+| Reports | `/reports` | 🔄 In Progress |
 
-## Next Session Tasks (From plan.md Phase 1)
+## Next Steps (After Break)
+1. ✅ Complete Reports Module (Sales/Inventory/Financial reports)
+2. ⏳️ Phase 4: Dashboard Module - KPI cards and real-time data
+3. Testing & Debugging
+4. Deployment prep
 
-### Immediate Fixes
-1. Fix customer upsert issue in `order.routes.ts`
-2. Test `POST /api/orders/sync` with date `2026-05-05`
-3. Verify orders saved to database
+## Important Notes
+- Backend runs on port 4000, Frontend on 3000
+- All API field mappings have been VERIFIED and FIXED
+- Prisma migrations are up to date (5 migrations total)
+- Raw Materials use type="R" in InventoryItem model
+- Wastage uses Internal Sales API with type="Wastage"
+- Customer Profiles show order history from raw payload
+- Financial module calculates tax liability from OrderTax table
 
-### Phase 1 Continuation
-4. Implement purchase sync: `POST /api/procurement/purchase/sync`
-5. Implement sales sync: `POST /api/procurement/sales/sync`
-6. Implement webhook endpoints for real-time updates
-7. Create React frontend with Vite + TypeScript
-
-## Useful Commands
-```powershell
-# Start PostgreSQL service
-Start-Service -Name "postgresql-x64-18"
-
-# Check PostgreSQL is running
-Get-Service -Name "*postgres*" | Select-Object Name, Status
-
-# Compile TypeScript
-cmd /c "cd C:\Users\U.C\Desktop\Projects\ERP\backend && npx tsc"
-
-# Start server (background)
-Start-Job -ScriptBlock { Set-Location "C:\Users\U.C\Desktop\Projects\ERP\backend"; node dist/server.js" }
-
-# Test health endpoint
-Invoke-RestMethod -Uri "http://localhost:4000/health" -Method Get
-
-# Check database tables
-$env:PGPASSWORD="123"; & "C:\Program Files\PostgreSQL\18\bin\psql.exe" -U postgres -d erp -c "\dt"
-
-# Run test script
-cmd /c "cd C:\Users\U.C\Desktop\Projects\ERP\backend && node test-server.js"
-```
-
-## File Structure
-```
-C:\Users\U.C\Desktop\Projects\ERP\
-├── plan.md (37KB - 12-section development plan)
-├── syntax.md (21KB - API syntax reference)
-├── CREDENTIALS.md (10KB - API credentials)
-├── SESSION_PROGRESS_2026-05-06.md (session summary)
-├── sample_*.json (API response samples)
-├── backend\
-│   ├── .env (PostgreSQL connection)
-│   ├── prisma\
-│   │   ├── schema.prisma (database schema)
-│   │   └── migrations\ (2 migrations applied)
-│   ├── src\
-│   │   ├── server.ts (Express server)
-│   │   ├── api\petpooja-client.ts (14+ API methods)
-│   │   └── routes\ (order, inventory, customer, etc.)
-│   └── dist\ (compiled JavaScript)
-└── frontend\ (TODO - create with React + Vite)
-```
-
-## Key Learnings
-1. **Always use real API samples** to verify field names before coding
-2. **PowerShell quirks**: No `&&` chaining, use `cmd /c` for npm/npx commands
-3. **Decimal precision**: PostgreSQL `Decimal(10,3)` overflows with large numbers, use `Decimal(12,3)`
-4. **Prisma unique constraints**: Be careful with unique fields that might be empty
-5. **Background jobs in PowerShell**: Use `Start-Job` not `&` (not supported)
+---
+**Last Updated:** 2026-05-07  
+**Next Session:** Complete Reports Module, then move to Phase 4 (Dashboard)
