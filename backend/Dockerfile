@@ -1,7 +1,10 @@
 # ---- Build Stage ----
-FROM node:20-alpine AS builder
+FROM node:20-slim AS builder
 
 WORKDIR /app
+
+# Install OpenSSL required by Prisma's query engine
+RUN apt-get update -y && apt-get install -y openssl && rm -rf /var/lib/apt/lists/*
 
 # Install all dependencies (including dev)
 COPY package.json package-lock.json ./
@@ -17,9 +20,12 @@ COPY src ./src
 RUN npm run build
 
 # ---- Production Stage ----
-FROM node:20-alpine AS runner
+FROM node:20-slim AS runner
 
 WORKDIR /app
+
+# Install OpenSSL required by Prisma's query engine at runtime
+RUN apt-get update -y && apt-get install -y openssl && rm -rf /var/lib/apt/lists/*
 
 # Install only production dependencies
 COPY package.json package-lock.json ./
@@ -33,8 +39,12 @@ COPY --from=builder /app/prisma ./prisma
 # Copy compiled output
 COPY --from=builder /app/dist ./dist
 
+# Copy startup script
+COPY docker-start.sh ./
+RUN chmod +x docker-start.sh
+
 EXPOSE 4000
 
 ENV NODE_ENV=production
 
-CMD ["node", "dist/server.js"]
+CMD ["./docker-start.sh"]

@@ -32,7 +32,8 @@ services:
     environment:
       PORT: 4000
       NODE_ENV: production
-      DATABASE_URL: ${DATABASE_URL:-postgresql://erp_user:erp_password@postgres:5432/erp_database}
+      # Use fixed Docker-internal URL (host's .env DATABASE_URL points to localhost, not Docker)
+      DATABASE_URL: postgresql://erp_user:erp_password@postgres:5432/erp_database
       APP_KEY: ${APP_KEY}
       ACCESS_TOKEN: ${ACCESS_TOKEN}
     ports:
