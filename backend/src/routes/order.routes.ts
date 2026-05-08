@@ -21,12 +21,15 @@ router.get('/', async (req: Request, res: Response) => {
             endDate,
             date,
             menuSharingCodes,
+            search,
+            paymentType,
             page = '1', 
             limit = '10' 
         } = req.query;
 
         const where: any = {};
-        
+        const andConditions: any[] = [];
+
         // Handle multiple menuSharingCodes
         if (menuSharingCodes) {
             const codes = (menuSharingCodes as string).split(',');
@@ -34,23 +37,45 @@ router.get('/', async (req: Request, res: Response) => {
                 where: { petpoojaRestId: { in: codes } }
             });
             if (restaurants.length > 0) {
-                where.restaurantId = { in: restaurants.map(r => r.id) };
+                andConditions.push({ restaurantId: { in: restaurants.map(r => r.id) } });
             }
         } else if (restaurantId) {
-            where.restaurantId = parseInt(restaurantId as string);
+            andConditions.push({ restaurantId: parseInt(restaurantId as string) });
         }
+
+        if (status) andConditions.push({ status: status as string });
+        if (paymentType) andConditions.push({ paymentType: paymentType as string });
         
-        if (status) where.status = status;
         if (date) {
             const dayStart = new Date(date as string);
             const dayEnd = new Date(date as string);
             dayEnd.setHours(23, 59, 59, 999);
-            where.createdOn = { gte: dayStart, lte: dayEnd };
+            andConditions.push({ createdOn: { gte: dayStart, lte: dayEnd } });
         } else if (startDate && endDate) {
-            where.createdOn = {
-                gte: new Date(startDate as string),
-                lte: new Date(endDate as string)
-            };
+            const endDateTime = new Date(endDate as string);
+            endDateTime.setHours(23, 59, 59, 999);
+            andConditions.push({
+                createdOn: {
+                    gte: new Date(startDate as string),
+                    lte: endDateTime
+                }
+            });
+        }
+
+        if (search) {
+            const searchStr = search as string;
+            andConditions.push({
+                OR: [
+                    { petpoojaOrderId: { contains: searchStr, mode: 'insensitive' } },
+                    { customer: { name: { contains: searchStr, mode: 'insensitive' } } },
+                    { customer: { phone: { contains: searchStr } } },
+                    { orderItems: { some: { name: { contains: searchStr, mode: 'insensitive' } } } },
+                ]
+            });
+        }
+
+        if (andConditions.length > 0) {
+            where.AND = andConditions;
         }
 
         const [orders, total] = await Promise.all([

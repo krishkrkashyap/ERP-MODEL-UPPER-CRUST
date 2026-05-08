@@ -1,4 +1,4 @@
-import { useState, useMemo, useEffect } from 'react';
+import { useState, useMemo, useEffect, useRef } from 'react';
 import { Card, Col, Row, Statistic, Spin, Alert, Typography, Table, Tag, Space, Button, Select, Divider, Radio } from 'antd';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import axios from 'axios';
@@ -50,6 +50,8 @@ const Dashboard = () => {
   const [datePreset, setDatePreset] = useState<string>('today');
   const [customDateRange, setCustomDateRange] = useState<[dayjs.Dayjs | null, dayjs.Dayjs | null]>([null, null]);
   const [selectedOutlets, setSelectedOutlets] = useState<string[]>(['uvhn3bim', 't2jrg8ez']); // Default: all outlets selected
+  const selectedOutletsRef = useRef(selectedOutlets);
+  useEffect(() => { selectedOutletsRef.current = selectedOutlets; }, [selectedOutlets]);
 
   // Compute date range based on preset
   const getDateRange = useMemo(() => {
@@ -160,6 +162,7 @@ const Dashboard = () => {
     queryKey: ['sales-trend', trendPeriod, startDate, endDate, selectedOutlets],
     queryFn: async () => {
       const params = new URLSearchParams();
+      if (selectedOutlets.length > 0) params.append('menuSharingCodes', selectedOutlets.join(','));
       if (trendPeriod === 'hourly') {
         const res = await axios.get(`/api/reports/hourly-item-wise?startDate=${startDate}&endDate=${endDate}&${new URLSearchParams(params).toString()}`);
         return res.data.data || [];
@@ -216,69 +219,61 @@ const Dashboard = () => {
   const syncOrdersMutation = useMutation({
     mutationFn: async () => {
       const date = dayjs().format('YYYY-MM-DD');
+      const outlets = selectedOutletsRef.current;
       // Sync for each selected outlet
-      for (const code of selectedOutlets) {
+      for (const code of outlets) {
         await axios.post('/api/orders/sync', { date, menuSharingCodes: [code] });
       }
       // Also sync for all selected outlets together
-      await axios.post('/api/orders/sync', { date, menuSharingCodes: selectedOutlets });
-      return 'Orders synced successfully!';
+      await axios.post('/api/orders/sync', { date, menuSharingCodes: outlets });
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['orders'] });
       queryClient.invalidateQueries({ queryKey: ['recent-orders'] });
       queryClient.invalidateQueries({ queryKey: ['dashboard-stats'] });
-      alert('Orders synced successfully!');
+      queryClient.invalidateQueries({ queryKey: ['sales-trend'] });
+      queryClient.invalidateQueries({ queryKey: ['category-sales'] });
+      queryClient.invalidateQueries({ queryKey: ['platform-sales'] });
     },
-    onError: (error: any) => {
-      alert(`Order sync failed: ${error.message}`);
-    }
   });
 
   // Sync inventory for all selected outlets
   const syncInventoryMutation = useMutation({
     mutationFn: async () => {
       const date = dayjs().format('YYYY-MM-DD');
-      await axios.post('/api/inventory/stock/sync', { date, menuSharingCodes: selectedOutlets });
-      return 'Inventory synced successfully!';
+      await axios.post('/api/inventory/stock/sync', { date, menuSharingCodes: selectedOutletsRef.current });
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['inventory'] });
       queryClient.invalidateQueries({ queryKey: ['low-stock'] });
       queryClient.invalidateQueries({ queryKey: ['dashboard-stats'] });
-      alert('Inventory synced successfully!');
     },
-    onError: (error: any) => {
-      alert(`Inventory sync failed: ${error.message}`);
-    }
   });
 
   // Sync customers for all selected outlets
   const syncCustomersMutation = useMutation({
     mutationFn: async () => {
       const date = dayjs().format('YYYY-MM-DD');
-      await axios.post('/api/customers/sync', { date, menuSharingCodes: selectedOutlets });
-      return 'Customers synced successfully!';
+      await axios.post('/api/customers/sync', { date, menuSharingCodes: selectedOutletsRef.current });
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['customers'] });
       queryClient.invalidateQueries({ queryKey: ['dashboard-stats'] });
-      alert('Customers synced successfully!');
+      queryClient.invalidateQueries({ queryKey: ['sales-trend'] });
+      queryClient.invalidateQueries({ queryKey: ['category-sales'] });
+      queryClient.invalidateQueries({ queryKey: ['platform-sales'] });
     },
-    onError: (error: any) => {
-      alert(`Customer sync failed: ${error.message}`);
-    }
   });
 
   // Auto-sync state
-  const [autoSyncInterval, setAutoSyncInterval] = useState<number | null>(null);
-  const [autoSyncTimer, setAutoSyncTimer] = useState<number | null>(null);
+  const [autoSyncInterval, setAutoSyncInterval] = useState<number | null>(15); // Default: 15s
+  const autoSyncTimerRef = useRef<number | null>(null);
 
   // Start/stop auto-sync
   const toggleAutoSync = (interval: number | null) => {
-    if (autoSyncTimer) {
-      clearInterval(autoSyncTimer);
-      setAutoSyncTimer(null);
+    if (autoSyncTimerRef.current) {
+      clearInterval(autoSyncTimerRef.current);
+      autoSyncTimerRef.current = null;
     }
     if (interval) {
       // Run immediately
@@ -286,21 +281,25 @@ const Dashboard = () => {
       syncInventoryMutation.mutate();
       syncCustomersMutation.mutate();
       // Then set interval
-      const timer = setInterval(() => {
+      autoSyncTimerRef.current = setInterval(() => {
         syncOrdersMutation.mutate();
         syncInventoryMutation.mutate();
         syncCustomersMutation.mutate();
       }, interval * 1000);
-      setAutoSyncTimer(timer);
     }
     setAutoSyncInterval(interval);
   };
 
-  // Cleanup on unmount
+  // Start auto-sync on mount, cleanup on unmount
   useEffect(() => {
+    toggleAutoSync(15);
     return () => {
-      if (autoSyncTimer) clearInterval(autoSyncTimer);
+      if (autoSyncTimerRef.current) {
+        clearInterval(autoSyncTimerRef.current);
+        autoSyncTimerRef.current = null;
+      }
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   // ── Computed values ──────────────────────────────────────────────────────
@@ -411,9 +410,9 @@ const Dashboard = () => {
               options={[
                 { value: null, label: 'Auto-Sync OFF' },
                 { value: 10, label: 'Every 10s' },
+                { value: 15, label: 'Every 15s' },
                 { value: 30, label: 'Every 30s' },
                 { value: 60, label: 'Every 1min' },
-                { value: 300, label: 'Every 5min' },
               ]}
             />
           </Space>

@@ -27,7 +27,7 @@ interface Order {
 
 const Orders = () => {
   const [page, setPage] = useState(1);
-  const [syncDate, setSyncDate] = useState<Dayjs | null>(dayjs().subtract(1, 'day'));
+  const [dateRange, setDateRange] = useState<[Dayjs | null, Dayjs | null]>([dayjs().subtract(7, 'day'), dayjs()]);
   const [menuSharingCodes, setMenuSharingCodes] = useState<string[]>(['uvhn3bim']);
   const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
   const [drawerVisible, setDrawerVisible] = useState(false);
@@ -37,20 +37,16 @@ const Orders = () => {
   const [paymentFilter, setPaymentFilter] = useState<string | undefined>(undefined);
   const [searchText, setSearchText] = useState('');
 
-  // Restaurant options
-  const [restaurants, setRestaurants] = useState<any[]>([]);
-  useEffect(() => {
-    axios.get('/api/restaurants').then(r => setRestaurants(r.data || [])).catch(() => {});
-  }, []);
-
   const { data, isLoading, error, refetch } = useQuery({
-    queryKey: ['orders', page, syncDate ? syncDate.format('YYYY-MM-DD') : '2026-05-05', menuSharingCodes, statusFilter, paymentFilter],
+    queryKey: ['orders', page, dateRange[0]?.format('YYYY-MM-DD') || '', dateRange[1]?.format('YYYY-MM-DD') || '', menuSharingCodes, statusFilter, paymentFilter, searchText],
     queryFn: async () => {
-      const formattedDate = syncDate?.format('YYYY-MM-DD') || '2026-05-05';
       const codes = menuSharingCodes.join(',');
-      const params: any = { page, limit: 10, date: formattedDate, menuSharingCodes: codes };
+      const params: any = { page, limit: 10, menuSharingCodes: codes };
+      if (dateRange[0]) params.startDate = dateRange[0].format('YYYY-MM-DD');
+      if (dateRange[1]) params.endDate = dateRange[1].format('YYYY-MM-DD');
       if (statusFilter) params.status = statusFilter;
       if (paymentFilter) params.paymentType = paymentFilter;
+      if (searchText) params.search = searchText;
       const res = await axios.get(`/api/orders`, { params });
       return res.data;
     },
@@ -128,7 +124,7 @@ const Orders = () => {
   const handleSync = async () => {
     try {
       await axios.post('/api/orders/sync', {
-        orderDate: syncDate?.format('YYYY-MM-DD'),
+        orderDate: dateRange[0]?.format('YYYY-MM-DD'),
         menuSharingCodes
       });
       refetch();
@@ -160,15 +156,6 @@ const Orders = () => {
     }
   }
 
-  // Client-side search filter
-  const filteredData = (data?.data || []).filter((o: Order) => {
-    if (!searchText) return true;
-    const q = searchText.toLowerCase();
-    return o.petpoojaOrderId?.toLowerCase().includes(q) ||
-           o.customer?.name?.toLowerCase().includes(q) ||
-           o.customer?.phone?.includes(q);
-  });
-
   const orderTotal = data?.pagination?.total || 0;
 
   return (
@@ -180,14 +167,20 @@ const Orders = () => {
           Orders
         </Title>
         <Text type="secondary" style={{ fontSize: 14 }}>
-          {orderTotal} total orders &middot; {syncDate?.format('DD-MM-YYYY') || 'No date'}
+          {orderTotal} total orders &middot; {dateRange[0]?.format('DD-MM-YYYY') || '?'} to {dateRange[1]?.format('DD-MM-YYYY') || '?'}
         </Text>
       </div>
 
       {/* ===== ACTION BAR ===== */}
       <div style={{ marginBottom: 16, display: 'flex', flexWrap: 'wrap', gap: 8, alignItems: 'center' }}>
         <OutletSelector value={menuSharingCodes} onChange={setMenuSharingCodes} />
-        <DatePicker value={syncDate} onChange={(date) => date && setSyncDate(date)} size="small" />
+        <DatePicker.RangePicker
+          value={dateRange}
+          onChange={(dates) => { setDateRange(dates || [null, null]); setPage(1); }}
+          size="small"
+          allowClear={false}
+          format="DD-MM-YYYY"
+        />
         
         <Select
           size="small"
@@ -210,7 +203,6 @@ const Orders = () => {
           allowClear
           style={{ width: 140 }}
         >
-          {/* We'll get options from data or hardcode common ones */}
           <Select.Option value="Cash">Cash</Select.Option>
           <Select.Option value="Other">Other</Select.Option>
           <Select.Option value="Due Payment">Due Payment</Select.Option>
@@ -219,11 +211,11 @@ const Orders = () => {
 
         <Input
           size="small"
-          placeholder="Search by Order ID or Customer..."
+          placeholder="Search by Item, Order ID, Customer..."
           prefix={<SearchOutlined />}
           value={searchText}
           onChange={(e) => setSearchText(e.target.value)}
-          style={{ width: 220 }}
+          style={{ width: 240 }}
           allowClear
         />
 
@@ -239,7 +231,7 @@ const Orders = () => {
       <Spin spinning={isLoading}>
         <Table
           columns={columns}
-          dataSource={filteredData}
+          dataSource={data?.data || []}
           rowKey="id"
           size="small"
           pagination={{

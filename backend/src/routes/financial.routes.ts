@@ -14,11 +14,14 @@ router.get('/tax-liability', async (req: Request, res: Response) => {
             return res.status(400).json({ error: 'startDate and endDate are required (YYYY-MM-DD)' });
         }
         
+        const endOfDay = new Date(endDate as string);
+        endOfDay.setHours(23, 59, 59, 999);
+        
         const where: any = {
             order: {
                 createdOn: {
                     gte: new Date(startDate as string),
-                    lte: new Date(endDate as string)
+                    lte: endOfDay
                 }
             }
         };
@@ -83,10 +86,13 @@ router.get('/pnl', async (req: Request, res: Response) => {
             return res.status(400).json({ error: 'startDate and endDate are required (YYYY-MM-DD)' });
         }
         
+        const endOfDay = new Date(endDate as string);
+        endOfDay.setHours(23, 59, 59, 999);
+        
         const where: any = {
             createdOn: {
                 gte: new Date(startDate as string),
-                lte: new Date(endDate as string)
+                lte: endOfDay
             }
         };
         
@@ -116,7 +122,7 @@ router.get('/pnl', async (req: Request, res: Response) => {
             where: {
                 invoiceDate: {
                     gte: new Date(startDate as string),
-                    lte: new Date(endDate as string)
+                    lte: endOfDay
                 },
                 ...(where.restaurantId ? { restaurantId: where.restaurantId } : {})
             },

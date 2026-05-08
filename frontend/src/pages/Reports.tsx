@@ -273,8 +273,8 @@ const Reports = () => {
   const [reportError, setReportError] = useState<string | null>(null);
 
   // Filter state
-  const [filterDateRange, setFilterDateRange] = useState<[dayjs.Dayjs | null, dayjs.Dayjs | null]>([null, null]);
-  const [selectedOutlets, setSelectedOutlets] = useState<string[]>([]);
+  const [filterDateRange, setFilterDateRange] = useState<[dayjs.Dayjs | null, dayjs.Dayjs | null]>([dayjs().subtract(30, 'day'), dayjs()]);
+  const [selectedOutlets, setSelectedOutlets] = useState<string[]>(['uvhn3bim', 't2jrg8ez']);
   const [filterCategory, setFilterCategory] = useState<string | undefined>(undefined);
   const [filterItem, setFilterItem] = useState<string | undefined>(undefined);
   const [filterStatus, setFilterStatus] = useState<string | undefined>(undefined);
@@ -375,10 +375,25 @@ const Reports = () => {
     } catch { /* ignore filter fetch errors */ }
   }, [getFilterParams, activeFilterKeys, selectedOutlets]);
 
-  // Reset all filters
+  // Fetch filter options when the report type changes (after drawer opens)
+  useEffect(() => {
+    if (selectedReport && drawerOpen) {
+      fetchFilterOptions();
+    }
+  }, [selectedReport, drawerOpen, fetchFilterOptions]);
+
+  // Auto-refetch data when filters change (outlet, date, status, etc.)
+  useEffect(() => {
+    if (selectedReport && drawerOpen) {
+      applyFilters();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [filterDateRange, selectedOutlets, filterStatus, filterPaymentType, filterPlatform]);
+
+  // Reset all filters to defaults
   const resetFilters = useCallback(() => {
-    setFilterDateRange([null, null]);
-    setSelectedOutlets([]);
+    setFilterDateRange([dayjs().subtract(30, 'day'), dayjs()]);
+    setSelectedOutlets(['uvhn3bim', 't2jrg8ez']);
     setFilterCategory(undefined);
     setFilterItem(undefined);
     setFilterStatus(undefined);
@@ -397,7 +412,7 @@ const Reports = () => {
     setLoading(true);
     setReportError(null);
     try {
-      const params = keepFilters ? getFilterParams() : {};
+      const params = getFilterParams();
       const res = await axios.get(`/api/reports/${report.id}`, { params });
       setReportData(res.data.data || []);
       setReportSummary(res.data.summary);
@@ -407,11 +422,9 @@ const Reports = () => {
     } finally {
       setLoading(false);
     }
-    // Fetch filter options after drawer opens
-    setTimeout(() => fetchFilterOptions(), 100);
   };
 
-  // Apply filters (re-fetch with current filter params)
+  // Apply filters (re-fetch with current filter params) - also used by Refresh
   const applyFilters = async () => {
     if (!selectedReport) return;
     setLoading(true);
@@ -527,7 +540,7 @@ const Reports = () => {
         onClose={() => setDrawerOpen(false)}
         extra={
           <Space>
-            <Button icon={<ReloadOutlined />} onClick={() => selectedReport && openReport(selectedReport, true)} loading={loading}>
+            <Button icon={<ReloadOutlined />} onClick={applyFilters} loading={loading}>
               Refresh
             </Button>
             <Button icon={<DownloadOutlined />} onClick={() => {
@@ -560,10 +573,7 @@ const Reports = () => {
               <Text type="secondary" style={{ fontSize: 11 }}>
                 ({activeFilterKeys.map(k => FILTER_META[k]?.label || k).join(' · ')})
               </Text>
-              <Button size="small" type="link" icon={<ClearOutlined />} onClick={() => {
-                resetFilters();
-                if (selectedReport) openReport(selectedReport, false);
-              }} style={{ fontSize: 12 }}>
+              <Button size="small" type="link" icon={<ClearOutlined />} onClick={resetFilters} style={{ fontSize: 12 }}>
                 Reset
               </Button>
             </div>
