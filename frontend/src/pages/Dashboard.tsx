@@ -1,6 +1,6 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { Card, Col, Row, Statistic, Spin, Alert, Typography, Table, Tag, Space, Button, Select, Divider, Radio } from 'antd';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import axios from 'axios';
 import {
   ShoppingCartOutlined,
@@ -49,7 +49,7 @@ const Dashboard = () => {
   const [trendPeriod, setTrendPeriod] = useState<'daily' | 'monthly' | 'hourly'>('daily');
   const [datePreset, setDatePreset] = useState<string>('today');
   const [customDateRange, setCustomDateRange] = useState<[dayjs.Dayjs | null, dayjs.Dayjs | null]>([null, null]);
-  const [selectedOutlets, setSelectedOutlets] = useState<string[]>([]);
+  const [selectedOutlets, setSelectedOutlets] = useState<string[]>(['uvhn3bim', 't2jrg8ez']); // Default: all outlets selected
 
   // Compute date range based on preset
   const getDateRange = useMemo(() => {
@@ -99,7 +99,7 @@ const Dashboard = () => {
       
       const [ordersRes, inventoryRes, customersRes, salesRes, todaySalesRes] = await Promise.all([
         axios.get(`/api/orders?page=1&limit=1&${params.toString()}`),
-        axios.get(`/api/inventory/stock?date=${endDate}`),
+        axios.get(`/api/inventory/stock?date=${endDate}&${params.toString()}`),
         axios.get(`/api/customers?${params.toString()}`),
         axios.get(`/api/reports/sales-day-wise?startDate=${startDate}&endDate=${endDate}&${params.toString()}`),
         axios.get(`/api/reports/sales-day-wise?startDate=${endDate}&endDate=${endDate}&${params.toString()}`),
@@ -209,6 +209,100 @@ const Dashboard = () => {
     },
   });
 
+  // ── Sync Mutations ────────────────────────────────────────────
+  const queryClient = useQueryClient();
+  
+  // Sync orders for all selected outlets
+  const syncOrdersMutation = useMutation({
+    mutationFn: async () => {
+      const date = dayjs().format('YYYY-MM-DD');
+      // Sync for each selected outlet
+      for (const code of selectedOutlets) {
+        await axios.post('/api/orders/sync', { date, menuSharingCodes: [code] });
+      }
+      // Also sync for all selected outlets together
+      await axios.post('/api/orders/sync', { date, menuSharingCodes: selectedOutlets });
+      return 'Orders synced successfully!';
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['orders'] });
+      queryClient.invalidateQueries({ queryKey: ['recent-orders'] });
+      queryClient.invalidateQueries({ queryKey: ['dashboard-stats'] });
+      alert('Orders synced successfully!');
+    },
+    onError: (error: any) => {
+      alert(`Order sync failed: ${error.message}`);
+    }
+  });
+
+  // Sync inventory for all selected outlets
+  const syncInventoryMutation = useMutation({
+    mutationFn: async () => {
+      const date = dayjs().format('YYYY-MM-DD');
+      await axios.post('/api/inventory/stock/sync', { date, menuSharingCodes: selectedOutlets });
+      return 'Inventory synced successfully!';
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['inventory'] });
+      queryClient.invalidateQueries({ queryKey: ['low-stock'] });
+      queryClient.invalidateQueries({ queryKey: ['dashboard-stats'] });
+      alert('Inventory synced successfully!');
+    },
+    onError: (error: any) => {
+      alert(`Inventory sync failed: ${error.message}`);
+    }
+  });
+
+  // Sync customers for all selected outlets
+  const syncCustomersMutation = useMutation({
+    mutationFn: async () => {
+      const date = dayjs().format('YYYY-MM-DD');
+      await axios.post('/api/customers/sync', { date, menuSharingCodes: selectedOutlets });
+      return 'Customers synced successfully!';
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['customers'] });
+      queryClient.invalidateQueries({ queryKey: ['dashboard-stats'] });
+      alert('Customers synced successfully!');
+    },
+    onError: (error: any) => {
+      alert(`Customer sync failed: ${error.message}`);
+    }
+  });
+
+  // Auto-sync state
+  const [autoSyncInterval, setAutoSyncInterval] = useState<number | null>(null);
+  const [autoSyncTimer, setAutoSyncTimer] = useState<number | null>(null);
+
+  // Start/stop auto-sync
+  const toggleAutoSync = (interval: number | null) => {
+    if (autoSyncTimer) {
+      clearInterval(autoSyncTimer);
+      setAutoSyncTimer(null);
+    }
+    if (interval) {
+      // Run immediately
+      syncOrdersMutation.mutate();
+      syncInventoryMutation.mutate();
+      syncCustomersMutation.mutate();
+      // Then set interval
+      const timer = setInterval(() => {
+        syncOrdersMutation.mutate();
+        syncInventoryMutation.mutate();
+        syncCustomersMutation.mutate();
+      }, interval * 1000);
+      setAutoSyncTimer(timer);
+    }
+    setAutoSyncInterval(interval);
+  };
+
+  // Cleanup on unmount
+  useEffect(() => {
+    return () => {
+      if (autoSyncTimer) clearInterval(autoSyncTimer);
+    };
+  }, []);
+
   // ── Computed values ──────────────────────────────────────────────────────
   const revenueChange = stats?.todayRevenue && stats?.yesterdayRevenue ? ((stats.todayRevenue - stats.yesterdayRevenue) / stats.yesterdayRevenue * 100).toFixed(1) : '0';
   const isRevenueUp = Number(revenueChange) >= 0;
@@ -280,7 +374,7 @@ const Dashboard = () => {
             ]}
           />
         </div>
-        {/* Outlet Selector */}
+          {/* Outlet Selector */}
         <div>
           <Text type="secondary" style={{ fontSize: 11, display: 'block', marginBottom: 4 }}>Outlets</Text>
           <OutletSelector
@@ -289,6 +383,40 @@ const Dashboard = () => {
             placeholder="All Outlets"
             style={{ minWidth: 200 }}
           />
+        </div>
+
+        {/* Sync Buttons */}
+        <div>
+          <Text type="secondary" style={{ fontSize: 11, display: 'block', marginBottom: 4 }}>Sync Data</Text>
+          <Space>
+            <Button 
+              size="small" 
+              type="primary" 
+              icon={<SyncOutlined />} 
+              loading={syncOrdersMutation.isPending || syncInventoryMutation.isPending || syncCustomersMutation.isPending}
+              onClick={() => {
+                syncOrdersMutation.mutate();
+                syncInventoryMutation.mutate();
+                syncCustomersMutation.mutate();
+              }}
+              style={{ background: '#1e293b', borderColor: '#1e293b' }}
+            >
+              Sync All
+            </Button>
+            <Select
+              size="small"
+              value={autoSyncInterval}
+              onChange={toggleAutoSync}
+              style={{ width: 130 }}
+              options={[
+                { value: null, label: 'Auto-Sync OFF' },
+                { value: 10, label: 'Every 10s' },
+                { value: 30, label: 'Every 30s' },
+                { value: 60, label: 'Every 1min' },
+                { value: 300, label: 'Every 5min' },
+              ]}
+            />
+          </Space>
         </div>
       </div>
       

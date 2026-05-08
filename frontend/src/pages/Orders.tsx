@@ -35,7 +35,6 @@ const Orders = () => {
   // Filters
   const [statusFilter, setStatusFilter] = useState<string | undefined>(undefined);
   const [paymentFilter, setPaymentFilter] = useState<string | undefined>(undefined);
-  const [restaurantFilter, setRestaurantFilter] = useState<number | undefined>(undefined);
   const [searchText, setSearchText] = useState('');
 
   // Restaurant options
@@ -45,14 +44,13 @@ const Orders = () => {
   }, []);
 
   const { data, isLoading, error, refetch } = useQuery({
-    queryKey: ['orders', page, syncDate ? syncDate.format('YYYY-MM-DD') : '2026-05-05', menuSharingCodes, statusFilter, paymentFilter, restaurantFilter],
+    queryKey: ['orders', page, syncDate ? syncDate.format('YYYY-MM-DD') : '2026-05-05', menuSharingCodes, statusFilter, paymentFilter],
     queryFn: async () => {
       const formattedDate = syncDate?.format('YYYY-MM-DD') || '2026-05-05';
       const codes = menuSharingCodes.join(',');
       const params: any = { page, limit: 10, date: formattedDate, menuSharingCodes: codes };
       if (statusFilter) params.status = statusFilter;
       if (paymentFilter) params.paymentType = paymentFilter;
-      if (restaurantFilter) params.restaurantId = restaurantFilter;
       const res = await axios.get(`/api/orders`, { params });
       return res.data;
     },
@@ -218,18 +216,6 @@ const Orders = () => {
           <Select.Option value="Due Payment">Due Payment</Select.Option>
           <Select.Option value="Part Payment">Part Payment</Select.Option>
         </Select>
-
-        <Select
-          size="small"
-          placeholder="All Restaurants"
-          value={restaurantFilter}
-          onChange={(val) => { setRestaurantFilter(val); setPage(1); }}
-          allowClear
-          showSearch
-          style={{ width: 180 }}
-          filterOption={(input, option) => (option?.label as string || '').toLowerCase().includes(input.toLowerCase())}
-          options={restaurants.map(r => ({ label: r.name, value: r.id }))}
-        />
 
         <Input
           size="small"
