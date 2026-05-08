@@ -3,9 +3,13 @@ FROM node:20-alpine AS builder
 
 WORKDIR /app
 
-# Install dependencies
+# Install all dependencies (including dev)
 COPY package.json package-lock.json ./
 RUN npm ci
+
+# Copy Prisma schema and generate client (needed BEFORE tsc build)
+COPY prisma ./prisma
+RUN npx prisma generate
 
 # Copy source and build
 COPY tsconfig.json ./
@@ -17,16 +21,17 @@ FROM node:20-alpine AS runner
 
 WORKDIR /app
 
-# Copy built output and production dependencies
+# Install only production dependencies
 COPY package.json package-lock.json ./
 RUN npm ci --production
 
-COPY --from=builder /app/dist ./dist
+# Copy Prisma generated client + schema from builder
 COPY --from=builder /app/node_modules/.prisma ./node_modules/.prisma
-COPY prisma ./prisma
+COPY --from=builder /app/node_modules/@prisma/client ./node_modules/@prisma/client
+COPY --from=builder /app/prisma ./prisma
 
-# Generate Prisma client for production
-RUN npx prisma generate
+# Copy compiled output
+COPY --from=builder /app/dist ./dist
 
 EXPOSE 4000
 
