@@ -1,57 +1,63 @@
 version: '3.8'
 
 services:
-  # PostgreSQL Database
   postgres:
-    image: postgres:18-alpine
+    image: postgres:16-alpine
     container_name: erp-postgres
+    restart: unless-stopped
     environment:
-      POSTGRES_DB: erp
-      POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: '123'
+      POSTGRES_USER: ${DB_USER:-erp_user}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-erp_password}
+      POSTGRES_DB: ${DB_NAME:-erp_database}
     ports:
       - "5432:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U postgres"]
-      interval: 5s
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USER:-erp_user} -d ${DB_NAME:-erp_database}"]
+      interval: 10s
       timeout: 5s
       retries: 5
+    networks:
+      - erp-network
 
-  # Backend API Server
   backend:
     build:
       context: ./backend
       dockerfile: Dockerfile
     container_name: erp-backend
-    ports:
-      - "4000:4000"
-    environment:
-      DATABASE_URL: postgresql://postgres:123@postgres:5432/erp?schema=public
-      PETPOOJA_APP_KEY: rpvg7joamn421d3u0x5qhk9ze8sibtcw
-      PETPOOJA_APP_SECRET: c7b1e4b80a2d1bfbf67da2bc81ca9dd9bf019b3e
-      PETPOOJA_ACCESS_TOKEN: 7334c01be3a9677868cbf1402880340e79e1ea84
-      PETPOOJA_MENU_SHARING_CODE: uvhn3bim
-      NODE_ENV: production
+    restart: unless-stopped
     depends_on:
       postgres:
         condition: service_healthy
-    restart: unless-stopped
+    environment:
+      PORT: 4000
+      NODE_ENV: production
+      DATABASE_URL: ${DATABASE_URL:-postgresql://erp_user:erp_password@postgres:5432/erp_database}
+      APP_KEY: ${APP_KEY}
+      ACCESS_TOKEN: ${ACCESS_TOKEN}
+    ports:
+      - "4000:4000"
+    networks:
+      - erp-network
 
-  # Frontend (Vite Dev Server)
   frontend:
     build:
       context: ./frontend
       dockerfile: Dockerfile
     container_name: erp-frontend
-    ports:
-      - "3000:3000"
-    environment:
-      VITE_API_URL: http://localhost:4000
+    restart: unless-stopped
     depends_on:
       - backend
-    restart: unless-stopped
+    ports:
+      - "80:80"
+    networks:
+      - erp-network
 
 volumes:
   postgres_data:
+    driver: local
+
+networks:
+  erp-network:
+    driver: bridge
