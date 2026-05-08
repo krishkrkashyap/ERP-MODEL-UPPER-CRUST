@@ -1,9 +1,10 @@
 import { useState } from 'react';
-import { Table, Button, Input, Space, Spin, Alert, DatePicker, Drawer, Descriptions, Typography, Divider, Tag } from 'antd';
+import { Table, Button, Input, Space, Spin, Alert, DatePicker, Drawer, Descriptions, Typography, Divider, Tag, Select } from 'antd';
 import { useQuery } from '@tanstack/react-query';
 import axios from 'axios';
 import type { ColumnsType } from 'antd/es/table';
 import dayjs, { Dayjs } from 'dayjs';
+import { DatabaseOutlined, SyncOutlined, SearchOutlined, DownloadOutlined } from '@ant-design/icons';
 import OutletSelector from '../components/OutletSelector';
 
 const { Text, Title } = Typography;
@@ -32,6 +33,7 @@ interface StockItem {
 const Inventory = () => {
   const [date, setDate] = useState<Dayjs | null>(dayjs().subtract(1, 'day'));
   const [search, setSearch] = useState('');
+  const [categoryFilter, setCategoryFilter] = useState<string | undefined>(undefined);
   const [menuSharingCodes, setMenuSharingCodes] = useState<string[]>(['uvhn3bim']);
   const [selectedItem, setSelectedItem] = useState<any | null>(null);
   const [drawerVisible, setDrawerVisible] = useState(false);
@@ -51,16 +53,48 @@ const Inventory = () => {
     setDrawerVisible(true);
   };
 
+  // Derive unique categories from data
+  const categories = [...new Set((data?.data || []).map((r: StockItem) => r.inventoryItem?.category).filter(Boolean))] as string[];
+
+  // Filtered data
+  const filteredData = (data?.data || []).filter((item: StockItem) => {
+    const name = item.inventoryItem?.name || '';
+    const sap = item.inventoryItem?.sapCode || '';
+    const cat = item.inventoryItem?.category || '';
+    const matchesSearch = !search || name.toLowerCase().includes(search.toLowerCase()) || sap.toLowerCase().includes(search.toLowerCase());
+    const matchesCategory = !categoryFilter || cat === categoryFilter;
+    return matchesSearch && matchesCategory;
+  });
+
+  const handleExportCSV = () => {
+    if (!filteredData.length) return;
+    const csv = [
+      'Item Name,Category,SAP Code,Quantity,Unit,Price',
+      ...filteredData.map((r: StockItem) =>
+        `"${r.inventoryItem?.name || ''}","${r.inventoryItem?.category || ''}","${r.inventoryItem?.sapCode || ''}",${Number(r.quantity) || 0},${r.unit || ''},${Number(r.price) || 0}`
+      )
+    ].join('\n');
+    const blob = new Blob([csv], { type: 'text/csv' });
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = `inventory-${date?.format('YYYY-MM-DD') || 'unknown'}.csv`;
+    a.click();
+  };
+
   const columns: ColumnsType<StockItem> = [
     {
       title: 'Item Name',
       key: 'name',
-      render: (_, record) => record.inventoryItem?.name || '-',
+      render: (_, record) => (
+        <Text ellipsis={{ tooltip: record.inventoryItem?.name }}>
+          {record.inventoryItem?.name || '-'}
+        </Text>
+      ),
     },
     {
       title: 'Category',
       key: 'category',
-      render: (_, record) => record.inventoryItem?.category || '-',
+      render: (_, record) => <Tag>{record.inventoryItem?.category || '-'}</Tag>,
     },
     {
       title: 'SAP Code',
@@ -72,7 +106,12 @@ const Inventory = () => {
       key: 'quantity',
       render: (_, record) => {
         const qty = Number(record.quantity);
-        return `${isNaN(qty) ? '0' : qty} ${record.unit || ''}`;
+        const isLow = qty <= 0;
+        return (
+          <Text style={{ color: isLow ? '#dc2626' : undefined, fontWeight: isLow ? 600 : undefined }}>
+            {isNaN(qty) ? '0' : qty} {record.unit || ''}
+          </Text>
+        );
       },
     },
     {
@@ -92,7 +131,7 @@ const Inventory = () => {
       title: 'Action',
       key: 'action',
       render: (_, record) => (
-        <Button type="link" onClick={() => showItemDetails(record)}>
+        <Button type="link" size="small" onClick={() => showItemDetails(record)}>
           View Details
         </Button>
       ),
@@ -110,13 +149,6 @@ const Inventory = () => {
     }
   };
 
-  const filteredData = data?.data?.filter((item: StockItem) =>
-    search
-      ? item.inventoryItem?.name?.toLowerCase().includes(search.toLowerCase()) ||
-        item.inventoryItem?.sapCode?.toLowerCase().includes(search.toLowerCase())
-      : true
-  );
-
   if (error) {
     return (
       <Alert
@@ -129,38 +161,69 @@ const Inventory = () => {
     );
   }
 
+  const totalItems = data?.data?.length || 0;
+  const lowStockCount = (data?.data || []).filter((i: any) => Number(i.quantity) <= 0).length;
+
   return (
     <div>
-      <div style={{ marginBottom: 16 }}>
-        <Space>
-          <OutletSelector value={menuSharingCodes} onChange={setMenuSharingCodes} />
-          <DatePicker
-            value={date}
-            onChange={(newDate) => setDate(newDate)}
-          />
-          <Input
-            placeholder="Search by name or SAP code"
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            style={{ width: 300 }}
-          />
-          <Button type="primary" onClick={handleSync}>
-            Sync Inventory
-          </Button>
-        </Space>
+      {/* ===== HEADER ===== */}
+      <div style={{ marginBottom: 20 }}>
+        <Title level={2} style={{ margin: 0 }}>
+          <DatabaseOutlined style={{ marginRight: 8 }} />
+          Inventory
+        </Title>
+        <Text type="secondary" style={{ fontSize: 14 }}>
+          {totalItems} items tracked &middot; {lowStockCount > 0 ? <Text style={{ color: '#dc2626' }}>{lowStockCount} out of stock</Text> : 'All stocked'}
+        </Text>
       </div>
+
+      {/* ===== ACTION BAR ===== */}
+      <div style={{ marginBottom: 16, display: 'flex', flexWrap: 'wrap', gap: 8, alignItems: 'center' }}>
+        <OutletSelector value={menuSharingCodes} onChange={setMenuSharingCodes} />
+        <DatePicker value={date} onChange={(newDate) => setDate(newDate)} size="small" />
+        
+        <Select
+          size="small"
+          placeholder="All Categories"
+          value={categoryFilter}
+          onChange={(val) => setCategoryFilter(val)}
+          allowClear
+          style={{ width: 160 }}
+          options={categories.map(c => ({ label: c, value: c }))}
+        />
+
+        <Input
+          size="small"
+          placeholder="Search by name or SAP code..."
+          prefix={<SearchOutlined />}
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+          style={{ width: 240 }}
+          allowClear
+        />
+
+        <Button type="primary" size="small" icon={<SyncOutlined />} onClick={handleSync} style={{ background: '#1e293b', borderColor: '#1e293b' }}>
+          Sync Inventory
+        </Button>
+        <Button size="small" icon={<DownloadOutlined />} onClick={handleExportCSV}>
+          Export CSV
+        </Button>
+      </div>
+
       <Spin spinning={isLoading}>
         <Table
           columns={columns}
-          dataSource={filteredData || []}
+          dataSource={filteredData}
           rowKey="id"
-          pagination={{ pageSize: 20 }}
+          size="small"
+          pagination={{ pageSize: 20, showSizeChanger: true, pageSizeOptions: ['10', '20', '50'] }}
+          scroll={{ x: 'max-content' }}
         />
       </Spin>
 
-      {/* Inventory Item Details Drawer */}
+      {/* ===== INVENTORY ITEM DETAIL DRAWER ===== */}
       <Drawer
-        title="Inventory Item Details"
+        title={selectedItem?.inventoryItem?.name || 'Item Details'}
         placement="right"
         width={640}
         onClose={() => setDrawerVisible(false)}
@@ -168,13 +231,13 @@ const Inventory = () => {
       >
         {selectedItem && (
           <div>
-            <Title level={4}>{selectedItem.inventoryItem?.name || 'Unknown Item'}</Title>
-            
-            <Descriptions bordered column={2} style={{ marginBottom: 24 }}>
+            <Descriptions bordered column={2} size="small" style={{ marginBottom: 24 }}>
               <Descriptions.Item label="SAP Code">{selectedItem.inventoryItem?.sapCode || '-'}</Descriptions.Item>
               <Descriptions.Item label="Category">{selectedItem.inventoryItem?.category || '-'}</Descriptions.Item>
               <Descriptions.Item label="Current Stock">
-                {Number(selectedItem.quantity) || 0} {selectedItem.unit || ''}
+                <Text style={{ color: Number(selectedItem.quantity) <= 0 ? '#dc2626' : undefined, fontWeight: 600 }}>
+                  {Number(selectedItem.quantity) || 0} {selectedItem.unit || ''}
+                </Text>
               </Descriptions.Item>
               <Descriptions.Item label="Price">
                 ₹{Number(selectedItem.price || 0).toFixed(2)}
@@ -184,11 +247,10 @@ const Inventory = () => {
               </Descriptions.Item>
             </Descriptions>
 
-            {/* Additional Item Details */}
             {selectedItem.inventoryItem && (
               <>
-                <Divider><Title level={5}>Item Master Data</Title></Divider>
-                <Descriptions bordered column={2}>
+                <Divider><Text strong style={{ fontSize: 14 }}>Item Master Data</Text></Divider>
+                <Descriptions bordered column={2} size="small">
                   <Descriptions.Item label="Type">{selectedItem.inventoryItem.type || '-'}</Descriptions.Item>
                   <Descriptions.Item label="HSN Code">{selectedItem.inventoryItem.hsnCode || '-'}</Descriptions.Item>
                   <Descriptions.Item label="Purchase Unit">{selectedItem.inventoryItem.unit || '-'}</Descriptions.Item>

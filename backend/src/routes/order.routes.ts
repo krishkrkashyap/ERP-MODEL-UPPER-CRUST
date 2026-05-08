@@ -63,7 +63,7 @@ router.get('/', async (req: Request, res: Response) => {
                     taxes: true,
                     discounts: true
                 },
-                orderBy: { createdAt: 'desc' },
+                orderBy: { createdOn: 'desc' },
                 skip: (parseInt(page as string) - 1) * parseInt(limit as string),
                 take: parseInt(limit as string)
             }),

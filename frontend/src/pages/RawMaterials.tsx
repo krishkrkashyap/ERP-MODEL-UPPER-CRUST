@@ -1,14 +1,18 @@
 import { useState } from 'react';
-import { Table, Button, Space, Spin, Alert, Input, message, Modal, Form, Select } from 'antd';
+import { Table, Button, Space, Spin, Alert, Input, message, Modal, Form, Select, Tag, Typography } from 'antd';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import axios from 'axios';
 import type { ColumnsType } from 'antd/es/table';
+import { AppstoreOutlined, PlusOutlined, SearchOutlined, DownloadOutlined } from '@ant-design/icons';
+import OutletSelector from '../components/OutletSelector';
+
+const { Title, Text } = Typography;
 
 interface RawMaterial {
   id: number;
   name: string;
   category?: string;
-  type: string; // 'R' for Raw Material
+  type: string;
   unit: string;
   consumptionUnit?: string;
   conversionQty?: number;
@@ -23,14 +27,19 @@ interface RawMaterial {
 
 const RawMaterials = () => {
   const [search, setSearch] = useState('');
+  const [categoryFilter, setCategoryFilter] = useState<string | undefined>(undefined);
+  const [selectedOutlets, setSelectedOutlets] = useState<string[]>([]);
   const [isModalVisible, setIsModalVisible] = useState(false);
   const [form] = Form.useForm();
   const queryClient = useQueryClient();
 
   const { data, isLoading, error } = useQuery({
-    queryKey: ['raw-materials'],
+    queryKey: ['raw-materials', categoryFilter, selectedOutlets],
     queryFn: async () => {
-      const res = await axios.get('/api/raw-materials');
+      const params: any = {};
+      if (categoryFilter) params.category = categoryFilter;
+      if (selectedOutlets.length > 0) params.menuSharingCodes = selectedOutlets.join(',');
+      const res = await axios.get('/api/raw-materials', { params });
       return res.data;
     },
   });
@@ -51,29 +60,56 @@ const RawMaterials = () => {
     }
   });
 
+  // Derive categories from data
+  const categories = [...new Set((data || []).map((r: RawMaterial) => r.category).filter(Boolean))] as string[];
+
+  // Client-side search
+  const filteredData = (data || []).filter((r: RawMaterial) => {
+    if (!search) return true;
+    const q = search.toLowerCase();
+    return r.name.toLowerCase().includes(q) ||
+           (r.sapCode || '').toLowerCase().includes(q) ||
+           (r.category || '').toLowerCase().includes(q);
+  });
+
+  const handleExportCSV = () => {
+    if (!filteredData.length) return;
+    const csv = [
+      'Name,Category,Unit,Consumption Unit,Conversion Qty,HSN Code,GST %,SAP Code,Status',
+      ...filteredData.map((r: RawMaterial) =>
+        `"${r.name}","${r.category || ''}","${r.unit}","${r.consumptionUnit || ''}",${r.conversionQty || ''},"${r.hsnCode || ''}",${r.gstPercentage || 0},"${r.sapCode || ''}",${r.status ? 'Active' : 'Inactive'}`
+      )
+    ].join('\n');
+    const blob = new Blob([csv], { type: 'text/csv' });
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = 'raw-materials.csv';
+    a.click();
+  };
+
   const columns: ColumnsType<RawMaterial> = [
     {
       title: 'Name',
       dataIndex: 'name',
       key: 'name',
-      filteredValue: search ? [search] : null,
-      onFilter: (value, record) => 
-        record.name.toLowerCase().includes((value as string).toLowerCase()),
+      render: (name: string) => <Text strong>{name}</Text>,
     },
     {
       title: 'Category',
       dataIndex: 'category',
       key: 'category',
-    },
-    {
-      title: 'Type',
-      dataIndex: 'type',
-      key: 'type',
+      render: (cat: string) => cat ? <Tag>{cat}</Tag> : '-',
     },
     {
       title: 'Unit',
       dataIndex: 'unit',
       key: 'unit',
+    },
+    {
+      title: 'Consumption Unit',
+      dataIndex: 'consumptionUnit',
+      key: 'consumptionUnit',
+      render: (v: string) => v || '-',
     },
     {
       title: 'HSN Code',
@@ -96,9 +132,9 @@ const RawMaterials = () => {
       dataIndex: 'status',
       key: 'status',
       render: (status: boolean) => (
-        <span style={{ color: status ? 'green' : 'red' }}>
+        <Tag color={status ? 'green' : 'red'}>
           {status ? 'Active' : 'Inactive'}
-        </span>
+        </Tag>
       ),
     },
     {
@@ -114,7 +150,7 @@ const RawMaterials = () => {
       const values = await form.validateFields();
       createMutation.mutate({
         ...values,
-        type: 'R', // Raw Material
+        type: 'R',
         gstPercentage: values.gstPercentage?.toString() || '0',
         conversionQty: values.conversionQty?.toString() || '0',
       });
@@ -135,31 +171,72 @@ const RawMaterials = () => {
     );
   }
 
+  const totalCount = data?.length || 0;
+
   return (
     <div>
-      <div style={{ marginBottom: 16 }}>
-        <Space>
-          <Input.Search
-            placeholder="Search materials..."
-            onSearch={(value) => setSearch(value)}
-            onChange={(e) => !e.target.value && setSearch('')}
-            style={{ width: 300 }}
-          />
-          <Button type="primary" onClick={() => setIsModalVisible(true)}>
-            Add Raw Material
-          </Button>
-        </Space>
+      {/* ===== HEADER ===== */}
+      <div style={{ marginBottom: 20 }}>
+        <Title level={2} style={{ margin: 0 }}>
+          <AppstoreOutlined style={{ marginRight: 8 }} />
+          Raw Materials
+        </Title>
+        <Text type="secondary" style={{ fontSize: 14 }}>
+          {totalCount} raw materials tracked &middot; Inventory ingredients used in production
+        </Text>
       </div>
 
+      {/* ===== ACTION BAR ===== */}
+      <div style={{ marginBottom: 16, display: 'flex', flexWrap: 'wrap', gap: 8, alignItems: 'center' }}>
+        <OutletSelector
+          value={selectedOutlets}
+          onChange={setSelectedOutlets}
+          placeholder="All Outlets"
+          style={{ minWidth: 180 }}
+        />
+
+        <Select
+          size="small"
+          placeholder="All Categories"
+          value={categoryFilter}
+          onChange={(val) => setCategoryFilter(val)}
+          allowClear
+          style={{ width: 160 }}
+          options={categories.map(c => ({ label: c, value: c }))}
+        />
+
+        <Input
+          size="small"
+          placeholder="Search by name, SAP code, or category..."
+          prefix={<SearchOutlined />}
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+          style={{ width: 280 }}
+          allowClear
+        />
+
+        <Button type="primary" size="small" icon={<PlusOutlined />} onClick={() => setIsModalVisible(true)} style={{ background: '#1e293b', borderColor: '#1e293b' }}>
+          Add Raw Material
+        </Button>
+
+        <Button size="small" icon={<DownloadOutlined />} onClick={handleExportCSV}>
+          Export CSV
+        </Button>
+      </div>
+
+      {/* ===== TABLE ===== */}
       <Spin spinning={isLoading}>
         <Table
           columns={columns}
-          dataSource={data || []}
+          dataSource={filteredData}
           rowKey="id"
+          size="small"
           pagination={{ pageSize: 10 }}
+          scroll={{ x: 'max-content' }}
         />
       </Spin>
 
+      {/* ===== CREATE MODAL ===== */}
       <Modal
         title="Add Raw Material"
         open={isModalVisible}

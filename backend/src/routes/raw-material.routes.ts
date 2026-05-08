@@ -9,10 +9,23 @@ const prisma = new PrismaClient();
 // Get all raw materials
 router.get('/', async (req: Request, res: Response) => {
     try {
-        const { restaurantId, category, status } = req.query;
+        const { restaurantId, category, status, menuSharingCodes } = req.query;
         
         const where: any = {};
-        if (restaurantId) where.restaurantId = parseInt(restaurantId as string);
+        
+        // Handle multiple menuSharingCodes
+        if (menuSharingCodes) {
+            const codes = (menuSharingCodes as string).split(',');
+            const restaurants = await prisma.restaurant.findMany({
+                where: { petpoojaRestId: { in: codes } }
+            });
+            if (restaurants.length > 0) {
+                where.restaurantId = { in: restaurants.map(r => r.id) };
+            }
+        } else if (restaurantId) {
+            where.restaurantId = parseInt(restaurantId as string);
+        }
+        
         if (category) where.category = category;
         if (status !== undefined) where.status = status === 'true';
         
@@ -21,6 +34,7 @@ router.get('/', async (req: Request, res: Response) => {
                 ...where,
                 type: 'R' // Raw Material type
             },
+            include: { restaurant: true },
             orderBy: { name: 'asc' }
         });
         

@@ -73,9 +73,13 @@ app.use('/api/wastage', wastageRoutes);
 import financialRoutes from './routes/financial.routes';
 app.use('/api/financial', financialRoutes);
 
-// Petpooja webhook routes'
+// Petpooja webhook routes
 import webhookRoutes from './routes/webhook.routes';
 app.use('/webhook/petpooja', webhookRoutes);
+
+// Report routes
+import reportRoutes from './routes/report.routes';
+app.use('/api/reports', reportRoutes);
 
 // ===== ERROR HANDLING =====
 app.use((err: Error, req: Request, res: Response, next: NextFunction) => {

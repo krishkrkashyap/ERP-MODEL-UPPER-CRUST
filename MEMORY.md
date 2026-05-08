@@ -1,10 +1,11 @@
-# ERP Project Memory - COMPLETE STATE (Last Updated: 2026-05-07)
+# ERP Project Memory - COMPLETE STATE (Last Updated: 2026-05-07, Session 2)
 
 ## 🎉 Project Overview
 - **Path:** `C:\Users\U.C\Desktop\Projects\ERP`
 - **Repository:** `https://github.com/krishkrkashyap/ERP-MODEL-UPPER-CRUST.git`
 - **Branch:** `main` | **Commits:** 5 (v0.1.0 → v0.5.0) | **Pushed ✅**
-- **Stack:** PostgreSQL + Prisma ORM, Node.js/Express, React/TypeScript, Tailwind CSS
+- **Stack:** PostgreSQL + Prisma ORM, Node.js/Express, React/TypeScript, recharts, Ant Design
+- **Running:** Backend on `:4000` (live Petpooja API), Frontend on `:3000` (Vite dev proxy `/api`→`:4000`)
 
 ## ✅ COMPLETED PHASES
 
@@ -13,189 +14,142 @@
 - All database schemas (Section 3 of plan.md)
 - Node.js/Express backend with TypeScript
 - Petpooja API client (14+ APIs)
-- React frontend with Tailwind CSS
-- **Fixed:** API field mappings (CRITICAL FIXES):
-  - Order Items: `itemname` → `name`, `qty` → `quantity`, `hsn_code` → `itemsapcode`
-  - Taxes: `tax_name` → `title`, `tax_percentage` → `rate`
-  - Discounts: `discount_name` → `title`
+- React frontend with Ant Design
+- **Fixed:** API field mappings (CRITICAL FIXES)
 - Orders & Inventory pages with outlet filtering
 - View Details feature (tables parsing raw JSON payload)
-- Multi-outlet support (UC - Vastrapur, UC - Bodakdev)
+- Multi-outlet support (UC - Vastrapur, UC - Another Outlet)
 - ErrorBoundary component added
 
 ### Phase 2: Core Modules ✅ (v0.2.0 - v0.4.0)
-| Module | Features | Commit |
-|--------|----------|--------|
-| Inventory | Stock levels, Raw Materials API, Wastage Tracking | v0.2.0, v0.3.0 |
-| Procurement | PO webhook receiver, Purchase API | v0.3.0 |
-| Sales & CRM | Orders page, Customer Profiles + order history | v0.1.0, v0.4.0 |
+- Raw Materials, Wastage Tracking, Customer Profiles
 
 ### Phase 3: Financial & Reports ✅ (v0.5.0)
-- **Financial Module:**
-  - Tax Liability Calculator (`/financial`)
-  - P&L Statement endpoint (`/api/financial/pnl`)
-  - Summary cards (Total Tax, CGST+SGST, IGST)
-- **Reports Module:**
-  - Reports page (`/reports`)
-  - Sales Report (order table)
-  - Inventory Report (stock levels)
-  - Financial Report (P&L display)
+- Tax Liability + P&L, 22 Report Types with smart per-report filters
 
-## 📂 CURRENT STATE (Ready for Phase 4)
+### Phase 4: Dashboard & Charts ✅ (Current Session)
+- **Dashboard:** 4 stat cards (Orders, Revenue, Customers, Inventory)
+- **Dashboard Charts:** Sales Trend bar chart (daily/monthly/hourly), Order Summary sidebar, Category donut, Platform bar chart
+- **Recent Orders** + **Low Stock Alerts** tables
+- **Backend:** `/api/reports/platform-summary` endpoint added
+- **Order sort fixed:** `createdAt`→`createdOn` for Petpooja order date sorting
+- **Installed:** `recharts` charting library
+- **All builds pass** (tsc + vite for frontend, tsc for backend)
+
+## 📂 CURRENT STATE
 
 ### Git Status ✅
-- **All code PUSHED to GitHub**
-- **No pending changes**
-- **5 commits total:**
-  1. v0.1.0: Phase 1 complete (Orders & Inventory)
-  2. v0.2.0: Raw Material API integration
-  3. v0.3.0: Wastage Tracking (Internal Sales API)
-  4. v0.4.0: Customer Profiles with order history
-  5. v0.5.0: Financial Module & Reports complete
+- All code PUSHED to GitHub, 5 commits
+- **Working tree has uncommitted changes** (Dashboard charts + platform-summary + recharts + order sort fix)
 
-### Pages Created/Updated ✅
-| Page | Path | Status | Backend Route |
-|------|------|--------|---------------|
-| Dashboard | `/` | ✅ Done | - |
-| Orders | `/orders` | ✅ Done + View Details | `/api/orders` |
-| Inventory | `/inventory` | ✅ Done + View Details | `/api/inventory` |
-| Raw Materials | `/raw-materials` | ✅ Done | `/api/raw-materials` |
-| Wastage Tracking | `/wastage` | ✅ Done | `/api/wastage` |
-| Customer Profiles | `/customers` | ✅ Done + Order History | `/api/customers` |
-| Financial | `/financial` | ✅ Done | `/api/financial` |
-| Reports | `/reports` | ✅ Done | `/api/financial/pnl` |
+### Pages & OutletSelector Status
+| Page | OutletSelector | DatePicker | menuSharingCodes Backend |
+|------|---------------|------------|--------------------------|
+| Dashboard `/` | ❌ Planned | ❌ Planned | ❌ Not needed (uses /api/reports) |
+| Orders `/orders` | ✅ Done | ✅ Done | ✅ `order.routes.ts` |
+| Inventory `/inventory` | ✅ Done | ✅ Done | ✅ `inventory.routes.ts` |
+| Raw Materials `/raw-materials` | ❌ Planned | ❌ N/A | ❌ `raw-material.routes.ts` |
+| Wastage Tracking `/wastage` | ❌ Planned | ✅ Done | ❌ `wastage.routes.ts` |
+| Customer Profiles `/customers` | ❌ Planned | ❌ N/A | ❌ `customer.routes.ts` |
+| Financial `/financial` | ❌ Planned | ✅ RangePicker | ❌ `financial.routes.ts` |
+| Reports `/reports` | ❌ Planned | ✅ RangePicker | ❌ `report.routes.ts` |
 
-### Backend Routes ✅
-- `server.ts` mounts ALL routes:
-  - `/api/restaurants` (restaurant.routes.ts)
-  - `/api/customers` (customer.routes.ts)
-  - `/api/orders` (order.routes.ts)
-  - `/api/inventory` (inventory.routes.ts)
-  - `/api/procurement` (procurement.routes.ts)
-  - `/api/raw-materials` (raw-material.routes.ts)
-  - `/api/wastage` (wastage.routes.ts)
-  - `/api/financial` (financial.routes.ts)
-  - `/webhook/petpooja` (webhook.routes.ts)
+### Critical Notes
+- `inventoryRes.data` is object `{date, count, data}` — all `.filter()`/`.length` calls use `.data?.data` sub-property
+- Dashboard currently hardcodes `date=2026-05-05` for inventory — must become dynamic
+- CustomerProfiles sync has hardcoded `restaurantId:2` and `menuSharingCode:'uvhn3bim'`
+- OutletSelector hardcoded outlets: `[{menuSharingCode:'uvhn3bim', name:'UC - Vastrapur (340305)'}, {menuSharingCode:'t2jrg8ez', name:'UC - Another Outlet (340304)'}]`
+- Order sort fixed from `createdAt`→`createdOn` to show latest Petpooja orders (not DB import time)
 
-### Frontend Routing ✅
-- `App.tsx` has ALL routes in `<Routes>`:
-  - `/` → Dashboard
-  - `/orders` → Orders
-  - `/inventory` → Inventory
-  - `/raw-materials` → RawMaterials
-  - `/wastage` → WastageTracking
-  - `/customers` → CustomerProfiles
-  - `/financial` → Financial
-  - `/reports` → Reports
+## 🚀 NEXT SESSION RESUME POINT
 
-### Build Status ✅
-- **Backend:** `npm run build` ✅ Passes
-- **Frontend:** `npm run build` ✅ Passes (some chunks > 500KB warning only)
-
-## 🚀 HOW TO RESUME (Next Session)
-
-### 1. Start Servers
+### Pre-requisites
 ```bash
 # Terminal 1 - Backend
-cd C:\Users\U.C\Desktop\Projects\ERP\backend
-npm run dev
-# Runs on http://localhost:4000
+cd C:\Users\U.C\Desktop\Projects\ERP\backend && npm run dev
 
-# Terminal 2 - Frontend  
-cd C:\Users\U.C\Desktop\Projects\ERP\frontend
-npm run dev
-# Runs on http://localhost:3000
+# Terminal 2 - Frontend
+cd C:\Users\U.C\Desktop\Projects\ERP\frontend && npm run dev
 ```
 
-### 2. Verify Pages Work
-1. Open `http://localhost:3000/orders` → Check sync + View Details
-2. Open `http://localhost:3000/inventory` → Check sync + View Details
-3. Open `http://localhost:3000/raw-materials` → Test add material
-4. Open `http://localhost:3000/wastage` → Test log wastage
-5. Open `http://localhost:3000/customers` → Check profiles + order history
-6. Open `http://localhost:3000/financial` → Check tax liability
-7. Open `http://localhost:3000/reports` → Test all report types
+### Immediate Next Steps (in order)
+1. **Add `menuSharingCodes` to `report.routes.ts`** — query param support in main `:type` handler + all 4 filter endpoints (categories, items, payment-types, platforms). Convert codes→restaurantIds via Prisma lookup.
+2. **Add `menuSharingCodes` to `raw-material.routes.ts` GET** — same pattern as order/inventory routes.
+3. **Add `menuSharingCodes` to `wastage.routes.ts` GET** — same pattern.
+4. **Add `menuSharingCodes` to `customer.routes.ts` GET** — same pattern.
+5. **Add `menuSharingCodes` to `financial.routes.ts`** — both tax-liability and pnl endpoints.
+6. **Update `Dashboard.tsx`** — add OutletSelector + DatePicker for inventory date, wire into all 7 query keys.
+7. **Add OutletSelector to `RawMaterials.tsx`** — in action bar, wire into query.
+8. **Add OutletSelector to `WastageTracking.tsx`** — in action bar, wire into query.
+9. **Add OutletSelector to `CustomerProfiles.tsx`** — in action bar, wire into query.
+10. **Add OutletSelector to `Financial.tsx`** — in filter bar, wire into queries.
+11. **Add OutletSelector to `Reports.tsx`** — in smart filter bar, wire into reports fetch.
+12. **Rebuild both projects** (`npm run build`), restart backend, test all pages.
 
-### 3. Phase 4: Dashboard Module ⏳️ PENDING
-**From plan.md Section 6, Phase 4:**
-- [ ] KPI cards (revenue, orders, stock value)
-- [ ] Revenue trend charts
-- [ ] Stock alert notifications
-- [ ] Real-time data refresh
-- [ ] Implement all remaining APIs (returns, transfers)
-- [ ] Build data reconciliation tools
-- [ ] Implement audit logging
-
-### 4. Phase 5: Testing & Deployment ⏳️ PENDING
-- [ ] Unit tests for API clients
-- [ ] Integration tests for database operations
-- [ ] E2E tests for critical flows
-- [ ] Set up production environment
-- [ ] Configure Nginx reverse proxy
-- [ ] Set up SSL certificates
-
-## 🔑 KEY FIXES APPLIED (Reference for Future)
-
-### API Field Mappings (VERIFIED ✅)
-| API Field | Database Field | Status |
-|------------|----------------|--------|
-| `name` | `name` | ✅ Fixed |
-| `quantity` | `quantity` | ✅ Fixed |
-| `itemsapcode` | `sapCode` | ✅ Fixed |
-| `title` (tax) | `title` | ✅ Fixed |
-| `rate` (tax) | `rate` | ✅ Fixed |
-
-### Error Handling ✅
-- `ErrorBoundary.tsx` wraps entire app in `App.tsx`
-- All pages use `try/catch` in query functions
-- Backend uses `try/catch` with proper error messages
-
-### Common Issues Fixed ✅
-1. **Blank pages:** Added ErrorBoundary, fixed routing
-2. **`toFixed` errors:** Changed to `Number(value || 0).toFixed(2)`
-3. **Pagination:** Added `page` to `queryKey`
-4. **Inventory unique constraint:** Changed `create` to `upsert`
-5. **Duplicate imports:** Fixed `App.tsx` (rewrote file)
-
-## 📊 Database Migrations Applied ✅
-1. `20260506124022_init_erp_schema` - Initial schema
-2. `20260506125346_increase_decimal_precision` - Decimal fields
-3. `20260507043620_fix_customer_unique_constraints` - Customer fields
-4. `20260507083426_add_raw_material_fields` - Raw material fields
-
-## 🔗 Petpooja API Credentials (Verified ✅)
-```javascript
-const CREDS = {
-  app_key: "rpvg7joamn421d3u0x5qhk9ze8sibtcw",
-  app_secret: "c7b1e4b80a2d1bfbf67da2bc81ca9dd9bf019b3e",
-  access_token: "7334c01be3a9677868cbf1402880340e79e1ea84",
-  menuSharingCode: "uvhn3bim" // UC - Vastrapur (340305)
-  // OR "t2jrg8ez" for UC - Bodakdev (340304)
-};
+### Build Verification
+```bash
+cd C:\Users\U.C\Desktop\Projects\ERP\backend && npm run build
+cd C:\Users\U.C\Desktop\Projects\ERP\frontend && npm run build
 ```
 
-## 📝 Next Session Plan (Phase 4)
+### Files to Modify (complete list)
+| File | Change |
+|------|--------|
+| `backend/src/routes/report.routes.ts` | Add `menuSharingCodes` to `:type` route + all filter endpoints |
+| `backend/src/routes/raw-material.routes.ts` | Add `menuSharingCodes` to GET `/` |
+| `backend/src/routes/wastage.routes.ts` | Add `menuSharingCodes` to GET `/` |
+| `backend/src/routes/customer.routes.ts` | Add `menuSharingCodes` to GET `/` |
+| `backend/src/routes/financial.routes.ts` | Add `menuSharingCodes` to tax-liability & pnl |
+| `frontend/src/pages/Dashboard.tsx` | Add OutletSelector + DatePicker |
+| `frontend/src/pages/RawMaterials.tsx` | Add OutletSelector |
+| `frontend/src/pages/WastageTracking.tsx` | Add OutletSelector |
+| `frontend/src/pages/CustomerProfiles.tsx` | Add OutletSelector |
+| `frontend/src/pages/Financial.tsx` | Add OutletSelector |
+| `frontend/src/pages/Reports.tsx` | Add OutletSelector |
 
-### Task 1: Dashboard Module
-Create `frontend/src/pages/Dashboard.tsx`:
-- KPI cards: Total Revenue, Orders Today, Stock Value, Low Stock Alerts
-- Charts: Revenue trends (line chart), Top-selling items (bar chart)
-- Real-time refresh every 30 seconds
-- Stock alerts for items below threshold
+## 🔑 KEY CONTEXT
 
-### Task 2: Remaining APIs
-- Sales Return API (push returns)
-- Transfer API (internal movements)
-- Complete Get Sales API integration
+### Database Schema (relevant)
+- **Restaurant:** `{id, name, petpoojaRestId}` — id=1 "Default Restaurant", id=2 "UC - Vastrapur" (`uvhn3bim`), id=3 "UC - Another Outlet" (`t2jrg8ez`)
+- **Order:** `{id, petpoojaOrderId, restaurantId, total, status, createdOn, orderFrom, paymentType, ...}`
+- **OrderItem:** `{id, orderId, name, quantity, total, categoryName, sapCode, ...}`
+- **StockLevel:** `{id, inventoryItemId, restaurantId, date, quantity, unit, price}` — unique on `(inventoryItemId, restaurantId, date)`
+- **InventoryItem:** `{id, name, category, sapCode, unit, type ('R'=raw), restaurantId, ...}`
 
-### Task 3: Testing
-- Write unit tests for API clients
-- Integration tests for database operations
-- E2E tests with Playwright
+### Pattern for menuSharingCodes in where clause (from order.routes.ts)
+```typescript
+if (menuSharingCodes) {
+    const codes = (menuSharingCodes as string).split(',');
+    const restaurants = await prisma.restaurant.findMany({
+        where: { petpoojaRestId: { in: codes } }
+    });
+    if (restaurants.length > 0) {
+        where.restaurantId = { in: restaurants.map(r => r.id) };
+    }
+} else if (restaurantId) {
+    where.restaurantId = parseInt(restaurantId as string);
+}
+```
+
+### Dashboard Query Keys (7 total)
+1. `['dashboard-stats']` — stats aggregation
+2. `['recent-orders']` — `/api/orders?page=1&limit=10&sort=createdOn&order=desc`
+3. `['low-stock']` — `/api/inventory/stock?date=${today}`
+4. `['sales-trend', trendPeriod]` — hourly or daily/monthly
+5. `['category-sales']` — `/api/reports/category-wise`
+6. `['platform-sales']` — `/api/reports/platform-summary`
+
+### Dashboard Charts
+- Sales Trend → `BarChart` (BarChartOutlined), switch daily/monthly/hourly
+- Order Summary sidebar → 4 mini-stat cards + platform breakdown list
+- Category → `PieChart` donut (top 10)
+- Platform → `BarChart` horizontal
+- Recent Orders → `Table`
+- Low Stock → `Table`
 
 ---
-**Last Session:** 2026-05-07  
-**Duration:** ~5 hours  
-**Status:** Phase 1-3 COMPLETE ✅, Ready for Phase 4 ⏳️  
-**Git:** All code PUSHED ✅  
-**Next Step:** Create Dashboard page with KPIs & Charts  
+**Last Session:** 2026-05-07 Session 2 (afternoon)  
+**Duration:** ~3 hours  
+**Status:** Phase 4 started (Dashboard charts built ✅, outlet filtering across all pages: ⏳️ pending)  
+**Git:** Uncommitted changes (Dashboard, recharts, order sort fix, platform-summary)  
+**Next Step:** Backend `menuSharingCodes` support in 5 routes → Frontend OutletSelector on 6 pages → Rebuild → Test  

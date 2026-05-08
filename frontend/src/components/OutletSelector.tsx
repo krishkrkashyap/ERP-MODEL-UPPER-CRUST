@@ -11,6 +11,8 @@ interface Outlet {
 interface OutletSelectorProps {
   value?: string[];
   onChange: (menuSharingCodes: string[]) => void;
+  placeholder?: string;
+  style?: React.CSSProperties;
 }
 
 // Static list of outlets (can be moved to DB later)
@@ -19,14 +21,14 @@ const OUTLETS: Outlet[] = [
   { menuSharingCode: 't2jrg8ez', name: 'UC - Another Outlet (340304)', id: '340304' },
 ];
 
-const OutletSelector = ({ value, onChange }: OutletSelectorProps) => {
+const OutletSelector = ({ value, onChange, placeholder = "Select Outlets (use checkboxes)", style }: OutletSelectorProps) => {
   return (
     <Select
       mode="multiple"
       value={value || ['uvhn3bim']}
       onChange={onChange}
-      style={{ width: 400 }}
-      placeholder="Select Outlets (use checkboxes)"
+      style={style || { width: 400 }}
+      placeholder={placeholder}
       options={OUTLETS.map(outlet => ({
         value: outlet.menuSharingCode,
         label: outlet.name,

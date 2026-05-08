@@ -8,7 +8,7 @@ const prisma = new PrismaClient();
 // Get tax liability for a period
 router.get('/tax-liability', async (req: Request, res: Response) => {
     try {
-        const { startDate, endDate, restaurantId } = req.query;
+        const { startDate, endDate, restaurantId, menuSharingCodes } = req.query;
         
         if (!startDate || !endDate) {
             return res.status(400).json({ error: 'startDate and endDate are required (YYYY-MM-DD)' });
@@ -23,7 +23,16 @@ router.get('/tax-liability', async (req: Request, res: Response) => {
             }
         };
         
-        if (restaurantId) {
+        // Handle multiple menuSharingCodes
+        if (menuSharingCodes) {
+            const codes = (menuSharingCodes as string).split(',');
+            const restaurants = await prisma.restaurant.findMany({
+                where: { petpoojaRestId: { in: codes } }
+            });
+            if (restaurants.length > 0) {
+                where.order.restaurantId = { in: restaurants.map(r => r.id) };
+            }
+        } else if (restaurantId) {
             where.order.restaurantId = parseInt(restaurantId as string);
         }
         
@@ -68,7 +77,7 @@ router.get('/tax-liability', async (req: Request, res: Response) => {
 // Get P&L statement for a period
 router.get('/pnl', async (req: Request, res: Response) => {
     try {
-        const { startDate, endDate, restaurantId } = req.query;
+        const { startDate, endDate, restaurantId, menuSharingCodes } = req.query;
         
         if (!startDate || !endDate) {
             return res.status(400).json({ error: 'startDate and endDate are required (YYYY-MM-DD)' });
@@ -81,7 +90,16 @@ router.get('/pnl', async (req: Request, res: Response) => {
             }
         };
         
-        if (restaurantId) {
+        // Handle multiple menuSharingCodes
+        if (menuSharingCodes) {
+            const codes = (menuSharingCodes as string).split(',');
+            const restaurants = await prisma.restaurant.findMany({
+                where: { petpoojaRestId: { in: codes } }
+            });
+            if (restaurants.length > 0) {
+                where.restaurantId = { in: restaurants.map(r => r.id) };
+            }
+        } else if (restaurantId) {
             where.restaurantId = parseInt(restaurantId as string);
         }
         
@@ -100,7 +118,7 @@ router.get('/pnl', async (req: Request, res: Response) => {
                     gte: new Date(startDate as string),
                     lte: new Date(endDate as string)
                 },
-                ...(restaurantId ? { restaurantId: parseInt(restaurantId as string) } : {})
+                ...(where.restaurantId ? { restaurantId: where.restaurantId } : {})
             },
             _sum: {
                 total: true

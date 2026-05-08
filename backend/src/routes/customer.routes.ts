@@ -9,19 +9,50 @@ const prisma = new PrismaClient();
 // ===== GET /api/customers - List all customers =====
 router.get('/', async (req: Request, res: Response) => {
     try {
-        const { restaurantId, phone } = req.query;
+        const { restaurantId, phone, menuSharingCodes } = req.query;
 
         const where: any = {};
-        if (restaurantId) where.restaurantId = parseInt(restaurantId as string);
+        
+        // Handle multiple menuSharingCodes
+        if (menuSharingCodes) {
+            const codes = (menuSharingCodes as string).split(',');
+            const restaurants = await prisma.restaurant.findMany({
+                where: { petpoojaRestId: { in: codes } }
+            });
+            if (restaurants.length > 0) {
+                where.restaurantId = { in: restaurants.map(r => r.id) };
+            }
+        } else if (restaurantId) {
+            where.restaurantId = parseInt(restaurantId as string);
+        }
+        
         if (phone) where.phone = phone;
 
+        // Fetch customers with restaurant info
         const customers = await prisma.customer.findMany({
             where,
             include: { restaurant: true },
             orderBy: { name: 'asc' }
         });
 
-        res.json({ success: true, data: customers });
+        // Count orders per customer efficiently using a single aggregation
+        const orderCounts = await prisma.order.groupBy({
+            by: ['customerId'],
+            _count: { id: true },
+            where: {
+                customerId: { in: customers.filter(c => c.id !== null).map(c => c.id) }
+            }
+        });
+
+        const countMap = new Map(orderCounts.map(oc => [oc.customerId, oc._count.id]));
+
+        // Attach count to each customer
+        const customersWithCounts = customers.map(c => ({
+            ...c,
+            orderCount: countMap.get(c.id) || 0,
+        }));
+
+        res.json({ success: true, data: customersWithCounts });
     } catch (error: any) {
         console.error('Error fetching customers:', error);
         res.status(500).json({ success: false, error: error.message });

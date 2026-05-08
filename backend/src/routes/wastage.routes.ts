@@ -1,47 +1,83 @@
 // src/routes/wastage.routes.ts - Wastage tracking routes
 import { Router, Request, Response } from 'express';
 import { PrismaClient } from '@prisma/client';
-import { petpoojaClient } from '../api/petpooja-client';
+import { petpoojaClient, PetpoojaClient } from '../api/petpooja-client';
 
 const router = Router();
 const prisma = new PrismaClient();
 
+// Helper to get client with correct menuSharingCode
+function getPetpoojaClient(menuSharingCode?: string): PetpoojaClient {
+  return new PetpoojaClient(menuSharingCode);
+}
+
 // Get wastage records (using Get Sales API with type="Wastage")
 router.get('/', async (req: Request, res: Response) => {
     try {
-        const { date, restaurantId } = req.query;
+        const { date, restaurantId, menuSharingCodes } = req.query;
         
         if (!date) {
             return res.status(400).json({ error: 'date is required (YYYY-MM-DD)' });
         }
+
+        // Determine which restaurant(s) to query
+        let restaurants: any[] = [];
+        if (menuSharingCodes) {
+            const codes = (menuSharingCodes as string).split(',');
+            restaurants = await prisma.restaurant.findMany({
+                where: { petpoojaRestId: { in: codes } }
+            });
+        } else if (restaurantId) {
+            const restaurant = await prisma.restaurant.findUnique({
+                where: { id: parseInt(restaurantId as string) }
+            });
+            if (restaurant) restaurants = [restaurant];
+        } else {
+            // No filter - get all restaurants
+            restaurants = await prisma.restaurant.findMany();
+        }
         
         // Fetch from Petpooja Get Sales API (syntax.md Section 2.4)
         // type: "Wastage" to filter only wastage records
-        const response = await petpoojaClient.getSales(
-            date as string,
-            date as string, // Same date for from/to
-            'Wastage'
-        );
+        // If multiple outlets, fetch for each and combine
+        let allSales: any[] = [];
         
-        if (response.code === '200' && response.sales) {
-            // Transform and return wastage records
-            const wastageRecords = response.sales.map((sale: any) => ({
-                id: sale.sale_id || 0,
-                invoiceNumber: sale.invoice_number || '',
-                invoiceDate: sale.invoice_date || '',
-                type: sale.type || 'Wastage',
-                total: parseFloat(sale.total || '0'),
-                totalTax: parseFloat(sale.total_tax || '0'),
-                receiverName: sale.rest_details?.receiver?.receiver_name || '',
-                receiverType: sale.rest_details?.receiver?.receiver_type || '',
-                status: sale.status || '1',
-                rawPayload: sale
-            }));
-            
-            res.json(wastageRecords);
-        } else {
-            res.json([]);
+        for (const restaurant of restaurants) {
+            if (restaurant.petpoojaRestId) {
+                const client = getPetpoojaClient(restaurant.petpoojaRestId);
+                const response = await client.getSales(
+                    date as string,
+                    date as string,
+                    'Wastage'
+                );
+                
+                if (response.code === '200' && response.sales) {
+                    allSales = allSales.concat(response.sales.map((sale: any) => ({
+                        ...sale,
+                        _restaurantId: restaurant.id,
+                        _restaurantName: restaurant.name
+                    })));
+                }
+            }
         }
+        
+        // Transform and return wastage records
+        const wastageRecords = allSales.map((sale: any) => ({
+            id: sale.sale_id || 0,
+            invoiceNumber: sale.invoice_number || '',
+            invoiceDate: sale.invoice_date || '',
+            type: sale.type || 'Wastage',
+            total: parseFloat(sale.total || '0'),
+            totalTax: parseFloat(sale.total_tax || '0'),
+            receiverName: sale.rest_details?.receiver?.receiver_name || '',
+            receiverType: sale.rest_details?.receiver?.receiver_type || '',
+            status: sale.status || '1',
+            restaurantId: sale._restaurantId || null,
+            restaurantName: sale._restaurantName || null,
+            rawPayload: sale
+        }));
+        
+        res.json(wastageRecords);
     } catch (error: any) {
         console.error('❌ Get wastage error:', error);
         res.status(500).json({ error: 'Failed to fetch wastage records' });
